@@ -1,0 +1,15 @@
+{
+  "name": "quantum-entanglement-game",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "dev": "nodemon --ignore data/*.json --env-file=.env server.js"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "socket.io": "^4.8.3"
+  }
+}

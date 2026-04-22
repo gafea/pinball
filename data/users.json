@@ -1,0 +1,37 @@
+{
+    "tony": {
+        "avatar": "Owl",
+        "name": "Tony Lee",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$HCMrHW3x7FdXWCrqoQOSXQ$P3kdVaR55c3GNJJs5ohCr5JASeYLbOLzwl1EqxlI2ao"
+    },
+    "may": {
+        "avatar": "Rabbit",
+        "name": "May Wong",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$xMhrz2aNUdQ3pM9J30woiw$I68tvur+uRmrYnyYNZfaYP4V8f060LSi4UY7MReA9+I"
+    },
+    "u1": {
+        "avatar": "Hamster",
+        "name": "u1",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$Fgy4F/Zv4pxgoMkWy7Q2Uw$7zcF42hPvw84JxA0fIflg94WGpzgpE7OIyMtc3AXQwM"
+    },
+    "u2": {
+        "avatar": "Rabbit Face",
+        "name": "u22",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$Ri6P/ERzoZsWxAf17AwNZw$B7w6TRYqLzVmkWclh3wwPMBug2Lz0zz+wQYB6/UDd4c"
+    },
+    "u3": {
+        "avatar": "Rabbit",
+        "name": "u33",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$TlukIo5SbM3/WB9mi3JIjg$qxzhmZMpKSejGY4JviOyW/Q9xaiKHu5mM4CIDL3OISA"
+    },
+    "user_001": {
+        "avatar": "Rabbit",
+        "name": "User 1",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$WKopz87glitkfmJm9y17Kg$5l0JTo5kM72EnAvb4wUNlrkXwdgo7vlMZXZaElEhiMg"
+    },
+    "user_002": {
+        "avatar": "Owl",
+        "name": "User 002",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$nHCzFF7kGg2/gb7h8EOSVw$6ixjobNXMWCICyFc6narSZb2uCMVK55HWTPVjbhpRGI"
+    }
+}
