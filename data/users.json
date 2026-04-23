@@ -33,5 +33,15 @@
         "avatar": "Owl",
         "name": "User 002",
         "password": "$argon2id$v=19$m=65536,t=3,p=4$nHCzFF7kGg2/gb7h8EOSVw$6ixjobNXMWCICyFc6narSZb2uCMVK55HWTPVjbhpRGI"
+    },
+    "me": {
+        "avatar": "Hamster",
+        "name": "me",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$NO2XZb+S3xTA1MuoD8gaWA$2GOuFErVJcf6Vyp8/bZDzZjU/UaCKpRh2xVvmLX+XaI"
+    },
+    "you": {
+        "avatar": "Rabbit Face",
+        "name": "you",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$IxhGd8LZzddx50Gulc5Xmg$4GnvSGTZFxwAlXbpGoW5xPdbkRNyHtXI323uHT5lq/c"
     }
 }
