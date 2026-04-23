@@ -4,13 +4,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
-    "dev": "nodemon --ignore data/*.json --env-file=.env server.js"
+    "dev": "nodemon --ignore data/*.json --env-file=.env server.js",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "argon2": "^0.44.0",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "nodemon": "^3.1.14",
+    "prettier": "^3.8.3",
     "socket.io": "^4.8.3"
   }
 }
