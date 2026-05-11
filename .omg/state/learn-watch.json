@@ -1,0 +1,12 @@
+{
+  "last_session_id": "e0a5e54d-4eb8-4285-b0e0-97f7bca4e016",
+  "last_event_key": "e0a5e54d-4eb8-4285-b0e0-97f7bca4e016:transcript:fc6f6a5900a353af15b21207c6d0cd95847f22e6addfaa2b631898450fce0935",
+  "last_prompted_session_id": "",
+  "last_prompted_at": "",
+  "last_reason": "short-session",
+  "last_user_message_count": 0,
+  "last_actionable_message_count": 0,
+  "deep_interview_lock_active": false,
+  "deep_interview_lock_source": "D:\\Projects\\HKUST\\COMP4021\\GP\\.omg\\state\\deep-interview.json",
+  "updated_at": "2026-05-11T05:11:46.587Z"
+}

@@ -11,6 +11,55 @@ const app = express();
 app.use(express.static("public"));
 app.use(express.json());
 
+const dataDir = path.join(__dirname, "data");
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const usersFile = path.join(dataDir, "users.json");
+
+class Database {
+  static getUsers() {
+    try {
+      if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, "{}");
+      return JSON.parse(fs.readFileSync(usersFile));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  static saveUsers(users) {
+    fs.writeFileSync(usersFile, JSON.stringify(users, null, 4));
+  }
+
+  static async register(username, name, avatar, password) {
+    const users = this.getUsers();
+    if (username in users) throw new Error("Username has already been used.");
+    const hash = await argon2.hash(password);
+    users[username] = { avatar, name, password: hash, wins: 0, matches: 0, xp: 0 };
+    this.saveUsers(users);
+  }
+
+  static async verify(username, password) {
+    const users = this.getUsers();
+    if (!(username in users)) throw new Error("Incorrect username/password.");
+    const valid = await argon2.verify(users[username].password, password);
+    if (!valid) throw new Error("Incorrect username/password.");
+    return { username, avatar: users[username].avatar, name: users[username].name };
+  }
+
+  static updateStats(username, won = false) {
+    const users = this.getUsers();
+    if (users[username]) {
+      users[username].matches = (users[username].matches || 0) + 1;
+      if (won) {
+        users[username].wins = (users[username].wins || 0) + 1;
+        users[username].xp = (users[username].xp || 0) + 50;
+      }
+      // Self-healing
+      users[username].matches = Math.max(users[username].matches, users[username].wins || 0);
+      this.saveUsers(users);
+    }
+  }
+}
+
 const gameSession = session({
   secret: "quantum-game-secret",
   resave: false,
@@ -24,93 +73,45 @@ function containWordCharsOnly(text) {
   return /^\w+$/.test(text);
 }
 
-const dataDir = path.join(__dirname, "data");
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-const usersFile = path.join(dataDir, "users.json");
-if (!fs.existsSync(usersFile))
-  fs.writeFileSync(usersFile, JSON.stringify({}, null, 4));
-
 app.post("/register", async (req, res) => {
   const { username, avatar, name, password } = req.body;
-
-  if (!username || !avatar || !name || !password)
-    return res.json({
-      error: "Username/avatar/name/password cannot be empty.",
-    });
-  if (!containWordCharsOnly(username))
-    return res.json({
-      error: "Username can only contain underscores, letters or numbers.",
-    });
-  const users = JSON.parse(fs.readFileSync(usersFile));
-  if (username in users)
-    return res.json({ error: "Username has already been used." });
-
-  const hash = await argon2.hash(password);
-  users[username] = { 
-    avatar, 
-    name, 
-    password: hash,
-    wins: 0,
-    matches: 0,
-    xp: 0
-  };
-  fs.writeFileSync(usersFile, JSON.stringify(users, null, 4));
-  res.json({ success: true });
+  if (!username || !avatar || !name || !password) return res.json({ error: "Missing fields." });
+  if (!containWordCharsOnly(username)) return res.json({ error: "Invalid characters." });
+  try {
+    await Database.register(username, name, avatar, password);
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
 });
 
 app.post("/signin", async (req, res) => {
   const { username, password } = req.body;
-  const users = JSON.parse(fs.readFileSync(usersFile));
-
-  if (!(username in users))
-    return res.json({ error: "Incorrect username/password." });
-  const hash = users[username].password;
-  const verified = await argon2.verify(hash, password);
-  if (!verified) return res.json({ error: "Incorrect username/password." });
-
-  const userInfo = {
-    username,
-    avatar: users[username].avatar,
-    name: users[username].name,
-  };
-  req.session.user = userInfo;
-  res.json({ user: userInfo });
+  try {
+    const user = await Database.verify(username, password);
+    req.session.user = user;
+    res.json({ user });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
 });
 
 app.get("/validate", (req, res) => {
-  const userInfo = req.session.user;
-
-  if (userInfo) res.json({ user: userInfo });
-  else res.json({ error: "You are not logged in." });
+  res.json(req.session.user ? { user: req.session.user } : { error: "Not logged in." });
 });
 
 app.get("/signout", (req, res) => {
-  if (req.session.user) delete req.session.user;
+  delete req.session.user;
   res.json({ success: true });
 });
 
 app.get("/leaderboard", (req, res) => {
-  try {
-    const users = JSON.parse(fs.readFileSync(usersFile));
-    const leaderboard = Object.entries(users)
-      .map(([username, data]) => {
-        const wins = data.wins || 0;
-        // Self-healing: matches should never be less than wins
-        const matches = Math.max(wins, data.matches || 0);
-        return {
-          username,
-          name: data.name,
-          avatar: data.avatar,
-          wins,
-          winRate: matches > 0 ? Math.min(100, (wins / matches) * 100).toFixed(1) : "0.0",
-        };
-      })
-      .sort((a, b) => b.wins - a.wins)
-      .slice(0, 5);
-    res.json(leaderboard);
-  } catch (e) {
-    res.json([]);
-  }
+  const users = Database.getUsers();
+  const lb = Object.entries(users).map(([username, u]) => ({
+    username, name: u.name, avatar: u.avatar, wins: u.wins || 0,
+    winRate: (u.matches || 0) > 0 ? ((u.wins || 0) / u.matches * 100).toFixed(1) : "0.0"
+  })).sort((a, b) => b.wins - a.wins).slice(0, 5);
+  res.json(lb);
 });
 
 const httpServer = createServer(app);
@@ -190,39 +191,14 @@ function endAuthoritativeMatch(roomCode, reason, winner) {
 
   const elapsedSeconds = Math.floor((Date.now() - match.startTime) / 1000);
 
-  // Track wins, XP and matches
-  const users = JSON.parse(fs.readFileSync(usersFile));
+  // Track wins, XP and matches using Database abstraction
   const room = rooms[roomCode];
-
-  // Update both players' match counts
   for (const sid of Object.keys(room?.players || {})) {
-    const uname = room.players[sid].username;
-    if (uname && users[uname]) {
-      users[uname].matches = (users[uname].matches || 0) + 1;
-      // Self-healing: if somehow matches < wins, sync them
-      if (users[uname].matches < (users[uname].wins || 0)) {
-        users[uname].matches = users[uname].wins;
-      }
+    const username = room.players[sid].username;
+    if (username) {
+      const isWinner = winner !== "draw" && match.socketIdBySide[winner] === sid;
+      Database.updateStats(username, isWinner);
     }
-  }
-
-  if (winner !== "draw") {
-    const winnerSocketId = match.socketIdBySide[winner];
-    const winnerInfo = room?.players[winnerSocketId];
-    if (winnerInfo && winnerInfo.username && users[winnerInfo.username]) {
-      users[winnerInfo.username].wins = (users[winnerInfo.username].wins || 0) + 1;
-      users[winnerInfo.username].xp = (users[winnerInfo.username].xp || 0) + 50;
-      // After incrementing wins, ensure matches is at least as large
-      if (users[winnerInfo.username].matches < users[winnerInfo.username].wins) {
-        users[winnerInfo.username].matches = users[winnerInfo.username].wins;
-      }
-    }
-  }
-  
-  try {
-    fs.writeFileSync(usersFile, JSON.stringify(users, null, 4));
-  } catch (e) {
-    console.error("Failed to save stats", e);
   }
 
   emitSnapshot(roomCode, match, true);

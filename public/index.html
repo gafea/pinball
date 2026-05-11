@@ -26,6 +26,33 @@
 
     <link rel="stylesheet" href="/stylesheets/style.css" />
     <link rel="stylesheet" href="/stylesheets/toast.css" />
+    <style>
+      .game-over-card { text-align: center; }
+      .game-over-title { justify-content: center; }
+      .game-over-msg { font-size: 1.5rem; font-weight: bold; margin: 16px 0; }
+      .game-stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 24px 0;
+        text-align: left;
+        padding: 0 16px;
+      }
+      .leaderboard-container {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 440px;
+        margin: 0 auto;
+      }
+      .btn-row { margin-top: 32px; display: flex; justify-content: center; gap: 16px; }
+      .reason-text { color: rgba(255, 255, 255, 0.6); margin-top: 8px; }
+      footer {
+        margin-top: 48px; padding: 24px; text-align: center;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.4); font-size: 0.9rem;
+      }
+    </style>
   </head>
   <body>
     <main>
@@ -265,29 +292,18 @@
       </div>
 
       <div id="game-over-view" class="primary-view container" style="display: none">
-        <section class="card" style="text-align: center">
-          <h2 class="card-title" style="justify-content: center">
+        <section class="card game-over-card">
+          <h2 class="card-title game-over-title">
             <span class="material-icons">emoji_events</span>Game Over
           </h2>
-          <p id="game-over-message" style="font-size: 1.2rem; margin: 16px 0">
-            Player X wins!
-          </p>
+          <div id="game-over-message" class="game-over-msg">
+            🎉 YOU WIN!
+          </div>
 
-          <div
-            id="game-stats"
-            style="
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 16px;
-              margin: 24px 0;
-              text-align: left;
-              padding: 0 16px;
-            "
-          >
+          <div id="game-stats" class="game-stats-grid">
             <div>
               <strong>Score:</strong> <span id="stat-score">0</span><br />
-              <strong>Successful Bounces:</strong>
-              <span id="stat-bounces">0</span><br />
+              <strong>Successful Bounces:</strong> <span id="stat-bounces">0</span><br />
               <strong>Time Survived:</strong> <span id="stat-time">0s</span>
             </div>
             <div>
@@ -299,21 +315,12 @@
 
           <div id="leaderboard-section" style="margin-top: 32px">
             <h3 style="margin-bottom: 16px">Top Players (Overall Ranking)</h3>
-            <div
-              id="leaderboard-list"
-              style="
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 8px;
-                padding: 16px;
-                max-width: 400px;
-                margin: 0 auto;
-              "
-            >
+            <div id="leaderboard-list" class="leaderboard-container">
               <!-- Leaderboard items will be injected here -->
             </div>
           </div>
 
-          <div style="margin-top: 32px; display: flex; justify-content: center; gap: 16px;">
+          <div class="btn-row">
             <button type="button" id="btn-rematch" class="primary">
               <span class="material-icons">refresh</span> Rematch
             </button>
@@ -327,7 +334,7 @@
       <div class="toast-container" id="toast-container"></div>
     </main>
 
-    <footer style="margin-top: 48px; padding: 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 0.9rem;">
+    <footer>
       <p>&copy; 2026 Group 27. All credits to the team.</p>
       <p><a href="https://github.com/HKUST-COMP4021/GP" target="_blank" style="color: #7be4ff; text-decoration: none;">GitHub Repository</a></p>
     </footer>

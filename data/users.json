@@ -4,15 +4,16 @@
         "name": "123",
         "password": "$argon2id$v=19$m=65536,t=3,p=4$aPEDC9IgsEcbHBKX0wxwBw$FPT4O6EUteuFtZI58K2cSnVjlOJaH5l+cXqW09IuHco",
         "wins": 6,
-        "matches": 6,
+        "matches": 7,
         "xp": 200
     },
     "456": {
         "avatar": "Hamster",
         "name": "456",
         "password": "$argon2id$v=19$m=65536,t=3,p=4$HqsMSMJODqTKRSz37hyy1A$AMLTbwQNyMPDdOzlHEhMorfyyWaYz4YhcSl7yYYVDtc",
-        "wins": 6,
-        "matches": 8
+        "wins": 7,
+        "matches": 9,
+        "xp": 50
     },
     "tony": {
         "avatar": "Owl",
