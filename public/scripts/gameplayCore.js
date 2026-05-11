@@ -19,8 +19,8 @@
   const GRAVITY_BLEND_HALF_BAND = 24;
   const DEFAULT_BUMPER_RADIUS = 18;
   const DEFAULT_BUMPER_RESTITUTION = 1.03;
-  const AREA_EFFECT_WIDTH = 92;
-  const AREA_EFFECT_HEIGHT = 118;
+  const AREA_EFFECT_WIDTH = 74;
+  const AREA_EFFECT_HEIGHT = 92;
   const AREA_EFFECT_MIDFIELD_MARGIN = 24;
   const AREA_EFFECT_MULTIPLIER = {
     slow: 0.96,
@@ -339,42 +339,42 @@
       makeSegment(
         { x: 20, y: 140 },
         { x: 90, y: 95 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 380, y: 140 },
         { x: 310, y: 95 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 90, y: 95 },
         { x: 118, y: 76 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 310, y: 95 },
         { x: 282, y: 76 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 20, y: 560 },
         { x: 90, y: 605 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 380, y: 560 },
         { x: 310, y: 605 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 90, y: 605 },
         { x: 118, y: 624 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
       makeSegment(
         { x: 310, y: 605 },
         { x: 282, y: 624 },
-        { kind: "speedPad", boost: 6, restitution: 0.98 },
+        { kind: "speedPad", boost: 3, restitution: 0.98 },
       ),
     ];
 

@@ -332,14 +332,23 @@ io.on("connection", (socket) => {
       const p1 = queue.shift();
       const p2 = queue.shift();
       const code = makeRoomCode();
+      
+      // Safety: Ensure both sockets are still connected and not already in a match
+      const s1 = io.sockets.sockets.get(p1.socketId);
+      const s2 = io.sockets.sockets.get(p2.socketId);
+      
+      if (!s1 || !s2) {
+        if (s1) queue.unshift(p1);
+        if (s2) queue.unshift(p2);
+        continue;
+      }
+
       rooms[code] = { owner: p1.socketId, players: {} };
       rooms[code].players[p1.socketId] = { username: p1.username, ready: true };
       rooms[code].players[p2.socketId] = { username: p2.username, ready: true };
 
-      const s1 = io.sockets.sockets.get(p1.socketId);
-      const s2 = io.sockets.sockets.get(p2.socketId);
-      if (s1) s1.join(code);
-      if (s2) s2.join(code);
+      s1.join(code);
+      s2.join(code);
 
       io.to(code).emit("room_joined", { code });
       io.to(code).emit("room_update", rooms[code]);
