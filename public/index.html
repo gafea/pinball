@@ -63,7 +63,7 @@
                 style="font-size: 18px; vertical-align: middle"
                 >keyboard</span
               >
-              <strong>Left Flipper:</strong> Press <kbd>A</kbd> or <kbd>←</kbd>
+              <strong>Left Flipper:</strong> Press <kbd>Z</kbd> (or <kbd>A</kbd>)
             </li>
             <li>
               <span
@@ -71,7 +71,15 @@
                 style="font-size: 18px; vertical-align: middle"
                 >keyboard</span
               >
-              <strong>Right Flipper:</strong> Press <kbd>D</kbd> or <kbd>→</kbd>
+              <strong>Right Flipper:</strong> Press <kbd>M</kbd> (or <kbd>D</kbd>)
+            </li>
+            <li>
+              <span
+                class="material-icons"
+                style="font-size: 18px; vertical-align: middle"
+                >auto_fix_high</span
+              >
+              <strong>Cheat Mode:</strong> Hold <kbd>G</kbd> & Ball follows Mouse
             </li>
             <li>
               <span
@@ -256,16 +264,73 @@
         </section>
       </div>
 
-      <div id="game-over-view" class="primary-view" style="display: none">
-        <h2 class="card-title">
-          <span class="material-icons">emoji_events</span>Game Over
-        </h2>
-        <p id="game-over-message">Player X wins!</p>
-        <button type="button" id="btn-back-home">Back to Home</button>
+      <div id="game-over-view" class="primary-view container" style="display: none">
+        <section class="card" style="text-align: center">
+          <h2 class="card-title" style="justify-content: center">
+            <span class="material-icons">emoji_events</span>Game Over
+          </h2>
+          <p id="game-over-message" style="font-size: 1.2rem; margin: 16px 0">
+            Player X wins!
+          </p>
+
+          <div
+            id="game-stats"
+            style="
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+              margin: 24px 0;
+              text-align: left;
+              padding: 0 16px;
+            "
+          >
+            <div>
+              <strong>Score:</strong> <span id="stat-score">0</span><br />
+              <strong>Successful Bounces:</strong>
+              <span id="stat-bounces">0</span><br />
+              <strong>Time Survived:</strong> <span id="stat-time">0s</span>
+            </div>
+            <div>
+              <strong>Win Count:</strong> <span id="stat-wins">0</span><br />
+              <strong>Win Rate:</strong> <span id="stat-winrate">0%</span><br />
+              <strong>Latest XP:</strong> <span id="stat-xp">0</span>
+            </div>
+          </div>
+
+          <div id="leaderboard-section" style="margin-top: 32px">
+            <h3 style="margin-bottom: 16px">Top Players (Overall Ranking)</h3>
+            <div
+              id="leaderboard-list"
+              style="
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 8px;
+                padding: 16px;
+                max-width: 400px;
+                margin: 0 auto;
+              "
+            >
+              <!-- Leaderboard items will be injected here -->
+            </div>
+          </div>
+
+          <div style="margin-top: 32px; display: flex; justify-content: center; gap: 16px;">
+            <button type="button" id="btn-rematch" class="primary">
+              <span class="material-icons">refresh</span> Rematch
+            </button>
+            <button type="button" id="btn-back-home" class="secondary">
+              <span class="material-icons">home</span> Back to Home
+            </button>
+          </div>
+        </section>
       </div>
 
       <div class="toast-container" id="toast-container"></div>
     </main>
+
+    <footer style="margin-top: 48px; padding: 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 0.9rem;">
+      <p>&copy; 2026 Group 27. All credits to the team.</p>
+      <p><a href="https://github.com/HKUST-COMP4021/GP" target="_blank" style="color: #7be4ff; text-decoration: none;">GitHub Repository</a></p>
+    </footer>
     <script src="scripts/avatar.js"></script>
     <script src="scripts/view.js"></script>
     <script src="scripts/toast.js"></script>

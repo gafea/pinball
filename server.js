@@ -46,7 +46,14 @@ app.post("/register", async (req, res) => {
     return res.json({ error: "Username has already been used." });
 
   const hash = await argon2.hash(password);
-  users[username] = { avatar, name, password: hash };
+  users[username] = { 
+    avatar, 
+    name, 
+    password: hash,
+    wins: 0,
+    matches: 0,
+    xp: 0
+  };
   fs.writeFileSync(usersFile, JSON.stringify(users, null, 4));
   res.json({ success: true });
 });
@@ -80,6 +87,30 @@ app.get("/validate", (req, res) => {
 app.get("/signout", (req, res) => {
   if (req.session.user) delete req.session.user;
   res.json({ success: true });
+});
+
+app.get("/leaderboard", (req, res) => {
+  try {
+    const users = JSON.parse(fs.readFileSync(usersFile));
+    const leaderboard = Object.entries(users)
+      .map(([username, data]) => {
+        const wins = data.wins || 0;
+        // Self-healing: matches should never be less than wins
+        const matches = Math.max(wins, data.matches || 0);
+        return {
+          username,
+          name: data.name,
+          avatar: data.avatar,
+          wins,
+          winRate: matches > 0 ? Math.min(100, (wins / matches) * 100).toFixed(1) : "0.0",
+        };
+      })
+      .sort((a, b) => b.wins - a.wins)
+      .slice(0, 5);
+    res.json(leaderboard);
+  } catch (e) {
+    res.json([]);
+  }
 });
 
 const httpServer = createServer(app);
@@ -157,6 +188,43 @@ function endAuthoritativeMatch(roomCode, reason, winner) {
     else match.runtime.match.status = "Game Over - Bottom Wins";
   }
 
+  const elapsedSeconds = Math.floor((Date.now() - match.startTime) / 1000);
+
+  // Track wins, XP and matches
+  const users = JSON.parse(fs.readFileSync(usersFile));
+  const room = rooms[roomCode];
+
+  // Update both players' match counts
+  for (const sid of Object.keys(room?.players || {})) {
+    const uname = room.players[sid].username;
+    if (uname && users[uname]) {
+      users[uname].matches = (users[uname].matches || 0) + 1;
+      // Self-healing: if somehow matches < wins, sync them
+      if (users[uname].matches < (users[uname].wins || 0)) {
+        users[uname].matches = users[uname].wins;
+      }
+    }
+  }
+
+  if (winner !== "draw") {
+    const winnerSocketId = match.socketIdBySide[winner];
+    const winnerInfo = room?.players[winnerSocketId];
+    if (winnerInfo && winnerInfo.username && users[winnerInfo.username]) {
+      users[winnerInfo.username].wins = (users[winnerInfo.username].wins || 0) + 1;
+      users[winnerInfo.username].xp = (users[winnerInfo.username].xp || 0) + 50;
+      // After incrementing wins, ensure matches is at least as large
+      if (users[winnerInfo.username].matches < users[winnerInfo.username].wins) {
+        users[winnerInfo.username].matches = users[winnerInfo.username].wins;
+      }
+    }
+  }
+  
+  try {
+    fs.writeFileSync(usersFile, JSON.stringify(users, null, 4));
+  } catch (e) {
+    console.error("Failed to save stats", e);
+  }
+
   emitSnapshot(roomCode, match, true);
   io.to(roomCode).emit("match_end", {
     roomCode,
@@ -171,6 +239,10 @@ function endAuthoritativeMatch(roomCode, reason, winner) {
       topLives: match.runtime.match.topLives,
       status: match.runtime.match.status,
       gameOver: true,
+      stats: {
+        bounces: match.bounces || 0,
+        duration: elapsedSeconds
+      }
     },
   });
 
@@ -184,7 +256,12 @@ function startAuthoritativeMatch(roomCode) {
   const sides = assignSides(room);
   if (!sides) return;
 
-  const runtime = GameplayCore.createRuntimeState();
+  const bumperLayout = GameplayCore.createSymmetricBumperLayout();
+  const areaEffects = GameplayCore.createSymmetricAreaEffectsLayout();
+  const runtime = GameplayCore.createRuntimeState({
+    bumpers: bumperLayout,
+    areaEffects,
+  });
   runtime.match.status = "Running";
   const matchId = `${roomCode}:${Date.now()}`;
 
@@ -196,6 +273,8 @@ function startAuthoritativeMatch(roomCode) {
     latestInputBySocketId: {},
     lastSeqBySocketId: {},
     intervalId: null,
+    startTime: Date.now(),
+    bounces: 0,
   };
 
   activeMatches[roomCode] = match;
@@ -217,6 +296,29 @@ function startAuthoritativeMatch(roomCode) {
 
     const bottomInput = match.latestInputBySocketId[bottomSocketId]?.input || {};
     const topInput = match.latestInputBySocketId[topSocketId]?.input || {};
+    const bottomCheatPos = match.latestInputBySocketId[bottomSocketId]?.cheatPos;
+    const topCheatPos = match.latestInputBySocketId[topSocketId]?.cheatPos;
+
+    // Shared Cheat Mode
+    const isCheating = bottomInput.cheat || topInput.cheat;
+    if (isCheating) {
+      const activeCheatPos = bottomInput.cheat ? bottomCheatPos : topCheatPos;
+      if (activeCheatPos) {
+        runtime.scene.ball.x = GameplayCore.clamp(activeCheatPos.x, 20, 380);
+        runtime.scene.ball.y = GameplayCore.clamp(activeCheatPos.y, 20, 680);
+        runtime.scene.ball.vx = 0;
+        runtime.scene.ball.vy = 0;
+      }
+      runtime.match.status = "🚨 Cheating in Progress 🚨";
+    }
+
+    // Match duration limit (4 minutes)
+    const elapsedMs = Date.now() - match.startTime;
+    if (elapsedMs > 4 * 60 * 1000) {
+      const winner = GameplayCore.getWinner(runtime.match);
+      endAuthoritativeMatch(roomCode, "time_up", winner);
+      return;
+    }
 
     const inputFrame = GameplayCore.buildInputFrame(runtime, {
       bottomInput,
@@ -224,7 +326,10 @@ function startAuthoritativeMatch(roomCode) {
       topControlMode: "manual",
     });
 
-    GameplayCore.stepRuntime(runtime, inputFrame);
+    const events = GameplayCore.stepRuntime(runtime, inputFrame);
+    if (events.some(e => e.type === "BUMPER_HIT")) {
+      match.bounces += events.filter(e => e.type === "BUMPER_HIT").length;
+    }
 
     if (runtime.match.gameOver) {
       const winner = GameplayCore.getWinner(runtime.match);
@@ -239,9 +344,7 @@ function startAuthoritativeMatch(roomCode) {
 io.on("connection", (socket) => {
   console.log("socket connected", socket.id);
 
-  // Queue-based matchmaking: join queue and form 2-player rooms
   socket.on("join_queue", (username) => {
-    // prevent duplicate
     if (queue.find((q) => q.socketId === socket.id)) {
       socket.emit("queue_failed", "Already in queue");
       return;
@@ -249,7 +352,6 @@ io.on("connection", (socket) => {
     queue.push({ socketId: socket.id, username });
     socket.emit("queue_joined");
 
-    // if enough players, form a match of 2 players
     while (queue.length >= 2) {
       const p1 = queue.shift();
       const p2 = queue.shift();
@@ -258,18 +360,13 @@ io.on("connection", (socket) => {
       rooms[code].players[p1.socketId] = { username: p1.username, ready: true };
       rooms[code].players[p2.socketId] = { username: p2.username, ready: true };
 
-      // add sockets to room if still connected
       const s1 = io.sockets.sockets.get(p1.socketId);
       const s2 = io.sockets.sockets.get(p2.socketId);
       if (s1) s1.join(code);
       if (s2) s2.join(code);
 
-      // notify players
-      // if (s1) s1.emit('room_joined', { code });
-      // if (s2) s2.emit('room_joined', { code });
       io.to(code).emit("room_joined", { code });
       io.to(code).emit("room_update", rooms[code]);
-      // immediately start game for 2-player match
       io.to(code).emit("game_start");
       startAuthoritativeMatch(code);
     }
@@ -282,13 +379,11 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Cancel a private room (owner only)
   socket.on("cancel_private_room", (code) => {
     const room = rooms[code];
     if (!room) return;
-    if (room.owner !== socket.id) return; // only owner can cancel
+    if (room.owner !== socket.id) return;
 
-    // notify players and remove room
     for (const sid of Object.keys(room.players)) {
       const s = io.sockets.sockets.get(sid);
       if (s) {
@@ -305,10 +400,10 @@ io.on("connection", (socket) => {
     rooms[code] = { owner: socket.id, players: {} };
     rooms[code].players[socket.id] = { username, ready: false };
     socket.join(code);
-    // notify owner with private room code
     socket.emit("private_room_created", { code });
     io.to(code).emit("room_update", rooms[code]);
   });
+
   socket.on("join_private_room", ({ code, username }) => {
     const room = rooms[code];
     if (!room) {
@@ -319,17 +414,30 @@ io.on("connection", (socket) => {
       socket.emit("room_error", "Room full");
       return;
     }
-    // add joining player and mark both as ready, then start match immediately
     room.players[socket.id] = { username, ready: true };
     const ownerSocket = io.sockets.sockets.get(room.owner);
     if (ownerSocket) {
-      // ensure owner is joined and marked ready
       ownerSocket.join(code);
       if (room.players[room.owner]) room.players[room.owner].ready = true;
     }
     socket.join(code);
     io.to(code).emit("room_update", room);
     io.to(code).emit("room_joined", { code });
+    io.to(code).emit("game_start");
+    startAuthoritativeMatch(code);
+  });
+
+  socket.on("rematch", (code) => {
+    const room = rooms[code];
+    if (!room) return;
+    if (activeMatches[code]) stopAuthoritativeMatch(code);
+    
+    // Reset players ready status
+    for (const sid of Object.keys(room.players)) {
+      room.players[sid].ready = true;
+    }
+    
+    io.to(code).emit("room_update", room);
     io.to(code).emit("game_start");
     startAuthoritativeMatch(code);
   });
@@ -346,21 +454,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("ready", (code) => {
-    const room = rooms[code];
-    if (!room) return;
-    if (room.players[socket.id]) room.players[socket.id].ready = true;
-    io.to(code).emit("room_update", room);
-    const allReady =
-      Object.values(room.players).length > 0 &&
-      Object.values(room.players).every((p) => p.ready);
-    if (allReady) {
-      io.to(code).emit("game_start");
-      startAuthoritativeMatch(code);
-    }
-  });
-
-  socket.on("input_frame", ({ roomCode, matchId, seq, input }) => {
+  socket.on("input_frame", ({ roomCode, matchId, seq, input, cheatPos }) => {
     const match = activeMatches[roomCode];
     if (!match) return;
     if (match.matchId !== matchId) return;
@@ -373,6 +467,7 @@ io.on("connection", (socket) => {
     match.latestInputBySocketId[socket.id] = {
       seq,
       input: GameplayCore.cloneInputState(input),
+      cheatPos,
     };
   });
 
@@ -385,10 +480,8 @@ io.on("connection", (socket) => {
       const winner = forfeiterSide === "bottom" ? "top" : "bottom";
       endAuthoritativeMatch(code, "forfeit", winner);
     }
-    // notify all players that someone forfeited
     io.to(code).emit("player_forfeit", { socketId: socket.id });
 
-    // make all players leave the room and remove the room entirely
     for (const sid of Object.keys(room.players)) {
       const s = io.sockets.sockets.get(sid);
       if (s) s.leave(code);
@@ -397,7 +490,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    // remove from matchmaking queue if present
     const qi = queue.findIndex((q) => q.socketId === socket.id);
     if (qi !== -1) {
       queue.splice(qi, 1);

@@ -305,7 +305,49 @@ async function init() {
     gm.applyAuthoritativeSnapshot(state, { matchId, ack });
   });
 
-  socket.on("match_end", ({ matchId, final, winner, reason }) => {
+  async function refreshLeaderboard() {
+    const leaderboard = await api("/leaderboard");
+    const container = $("#leaderboard-list");
+    if (!container.length) return;
+
+    if (!leaderboard || !leaderboard.length) {
+      container.html("<p>No rankings available yet.</p>");
+      return;
+    }
+
+    let html = `
+      <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.1)">
+            <th style="padding: 8px">Rank</th>
+            <th style="padding: 8px">Player</th>
+            <th style="padding: 8px; text-align: right;">Win Rate</th>
+            <th style="padding: 8px; text-align: right;">Wins</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    leaderboard.forEach((entry, idx) => {
+      const avatarHtml = Avatar.getCode(entry.avatar);
+      html += `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05)">
+          <td style="padding: 8px">${idx + 1}</td>
+          <td style="padding: 8px">
+            <span style="vertical-align: middle; margin-right: 8px">${avatarHtml}</span>
+            <span style="vertical-align: middle">${entry.name}</span>
+          </td>
+          <td style="padding: 8px; text-align: right;">${entry.winRate}%</td>
+          <td style="padding: 8px; text-align: right; font-weight: bold; color: #7be4ff">${entry.wins}</td>
+        </tr>
+      `;
+    });
+
+    html += "</tbody></table>";
+    container.html(html);
+  }
+
+  socket.on("match_end", async ({ matchId, final, winner, reason }) => {
     if (currentMatchId && matchId !== currentMatchId) return;
     currentMatchId = null;
     const gm = getGameRuntime();
@@ -324,14 +366,55 @@ async function init() {
         },
         {},
       );
+
+      // Update Game Over Stats
+      $("#stat-score").text(localSide === "top" ? final.topScore : final.score);
+      $("#stat-bounces").text(final.stats?.bounces || 0);
+      $("#stat-time").text(`${final.stats?.duration || 0}s`);
+
+      // Get persistent user data for the rest
+      const v = await api("/validate");
+      if (!v.error && v.user) {
+        // We'd ideally have an API for this, but let's re-validate to get latest data if possible
+        // For now, use the leaderboard as a proxy or just show current session data
+        $("#stat-wins").text(v.user.wins || "..."); // This might be stale without a fresh fetch
+        // Re-fetch leaderboard to get latest ranking position for this user
+        const lb = await api("/leaderboard");
+        const entry = lb.find(e => e.username === v.user.username);
+        if (entry) {
+          $("#stat-wins").text(entry.wins);
+          $("#stat-winrate").text(`${entry.winRate}%`);
+        }
+      }
     }
 
-    const summary =
-      winner === "draw"
-        ? `Draw! Reason: ${reason}.`
-        : `${winner === "bottom" ? "Bottom" : "Top"} wins! Reason: ${reason}.`;
-    $("#game-over-message").text(summary);
+    let resultMessage = "";
+    if (winner === "draw") {
+      resultMessage = "It's a Draw!";
+    } else {
+      const isWinner = winner === localSide;
+      resultMessage = isWinner ? "🎉 YOU WIN!" : "💀 YOU LOSE";
+    }
+
+    const humanReason = {
+      game_over: "Match complete",
+      time_up: "Time is up",
+      forfeit: "Player forfeited",
+      disconnect: "Player disconnected",
+    }[reason] || reason;
+
+    $("#game-over-message").html(
+      `<div style="font-size: 2rem; font-weight: bold; margin-bottom: 8px;">${resultMessage}</div>` +
+      `<div style="color: rgba(255,255,255,0.6)">Reason: ${humanReason}</div>`
+    );
     View.show("game-over-view");
+    await refreshLeaderboard();
+  });
+
+  $("#btn-rematch").click(() => {
+    if (!currentRoom) return;
+    socket.emit("rematch", currentRoom);
+    View.show("game-play-view");
   });
 
   socket.on("player_forfeit", () => {

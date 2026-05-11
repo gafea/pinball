@@ -13,8 +13,19 @@
   const TOP_GOAL_MAX_X = 250;
   const BOTTOM_GOAL_MIN_X = 150;
   const BOTTOM_GOAL_MAX_X = 250;
+  const PLAYFIELD_LEFT_X = 20;
+  const PLAYFIELD_RIGHT_X = 380;
   const MIDFIELD_Y = CANVAS_HEIGHT / 2;
   const GRAVITY_BLEND_HALF_BAND = 24;
+  const DEFAULT_BUMPER_RADIUS = 18;
+  const DEFAULT_BUMPER_RESTITUTION = 1.03;
+  const AREA_EFFECT_WIDTH = 92;
+  const AREA_EFFECT_HEIGHT = 118;
+  const AREA_EFFECT_MIDFIELD_MARGIN = 24;
+  const AREA_EFFECT_MULTIPLIER = {
+    slow: 0.96,
+    speed: 1.04,
+  };
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -22,9 +33,130 @@
     left: !!state.left,
     right: !!state.right,
     both: !!state.both,
+    cheat: !!state.cheat,
   });
 
   const makeSegment = (p1, p2, extra = {}) => ({ p1, p2, ...extra });
+
+  const makeBumper = (x, y, extra = {}) => ({
+    x,
+    y,
+    r: DEFAULT_BUMPER_RADIUS,
+    restitution: DEFAULT_BUMPER_RESTITUTION,
+    lastHitAt: 0,
+    activeUntil: 0,
+    ...extra,
+  });
+
+  const mirrorPoint180 = ({ x, y }) => ({
+    x: CANVAS_WIDTH - x,
+    y: CANVAS_HEIGHT - y,
+  });
+
+  const mirrorRect180 = ({ x, y, w, h, kind }) => ({
+    x: CANVAS_WIDTH - x - w,
+    y: CANVAS_HEIGHT - y - h,
+    w,
+    h,
+    kind,
+  });
+
+  const randomBetween = (min, max, random = Math.random) =>
+    min + random() * (max - min);
+
+  const createSymmetricBumperLayout = (random = Math.random) => {
+    const radius = DEFAULT_BUMPER_RADIUS;
+    const topLeftZone = {
+      minX: 86,
+      maxX: 138,
+      minY: 190,
+      maxY: 250,
+    };
+    const topRightZone = {
+      minX: 262,
+      maxX: 314,
+      minY: 190,
+      maxY: 250,
+    };
+    const minPairDistance = radius * 3;
+
+    let topLeft;
+    let topRight;
+    let attempts = 0;
+
+    do {
+      topLeft = {
+        x: randomBetween(topLeftZone.minX, topLeftZone.maxX, random),
+        y: randomBetween(topLeftZone.minY, topLeftZone.maxY, random),
+      };
+      topRight = {
+        x: randomBetween(topRightZone.minX, topRightZone.maxX, random),
+        y: randomBetween(topRightZone.minY, topRightZone.maxY, random),
+      };
+      attempts += 1;
+    } while (
+      attempts < 100 &&
+      Math.hypot(topLeft.x - topRight.x, topLeft.y - topRight.y) < minPairDistance
+    );
+
+    const bottomRight = mirrorPoint180(topLeft);
+    const bottomLeft = mirrorPoint180(topRight);
+
+    return [
+      makeBumper(topLeft.x, topLeft.y),
+      makeBumper(topRight.x, topRight.y),
+      makeBumper(bottomLeft.x, bottomLeft.y),
+      makeBumper(bottomRight.x, bottomRight.y),
+    ];
+  };
+
+  const createSymmetricAreaEffectsLayout = (random = Math.random) => {
+    const maxTopZoneY = MIDFIELD_Y - AREA_EFFECT_HEIGHT - AREA_EFFECT_MIDFIELD_MARGIN;
+
+    const topLeftZone = {
+      minX: 52,
+      maxX: 120,
+      minY: 170,
+      maxY: maxTopZoneY,
+    };
+    const topRightZone = {
+      minX: 228,
+      maxX: 256,
+      minY: 170,
+      maxY: maxTopZoneY,
+    };
+
+    const topLeftSpeed = {
+      x: randomBetween(topLeftZone.minX, topLeftZone.maxX, random),
+      y: randomBetween(topLeftZone.minY, topLeftZone.maxY, random),
+      w: AREA_EFFECT_WIDTH,
+      h: AREA_EFFECT_HEIGHT,
+      kind: "speed",
+    };
+    const topRightSlow = {
+      x: randomBetween(topRightZone.minX, topRightZone.maxX, random),
+      y: randomBetween(topRightZone.minY, topRightZone.maxY, random),
+      w: AREA_EFFECT_WIDTH,
+      h: AREA_EFFECT_HEIGHT,
+      kind: "slow",
+    };
+
+    const bottomLeftSlow = {
+      ...mirrorRect180(topRightSlow),
+      kind: "slow",
+    };
+    const bottomRightSpeed = {
+      ...mirrorRect180(topLeftSpeed),
+      kind: "speed",
+    };
+
+    return [
+      topLeftSpeed,
+      topRightSlow,
+      bottomLeftSlow,
+      bottomRightSpeed,
+    ];
+  };
 
   const getGravityScale = (ballY) => {
     const distanceFromMidfield = ballY - MIDFIELD_Y;
@@ -127,7 +259,7 @@
     );
   };
 
-  const buildScene = () => {
+  const buildScene = (options = {}) => {
     const ball = {
       x: CANVAS_WIDTH / 2,
       y: CANVAS_HEIGHT * 0.68,
@@ -184,40 +316,18 @@
       },
     };
 
-    const bumpers = [
-      {
-        x: 95,
-        y: 215,
-        r: 18,
-        restitution: 1.03,
-        lastHitAt: 0,
-        activeUntil: 0,
-      },
-      {
-        x: 305,
-        y: 215,
-        r: 18,
-        restitution: 1.03,
-        lastHitAt: 0,
-        activeUntil: 0,
-      },
-      {
-        x: 95,
-        y: 485,
-        r: 18,
-        restitution: 1.03,
-        lastHitAt: 0,
-        activeUntil: 0,
-      },
-      {
-        x: 305,
-        y: 485,
-        r: 18,
-        restitution: 1.03,
-        lastHitAt: 0,
-        activeUntil: 0,
-      },
-    ];
+    const bumpers = (options.bumpers || createSymmetricBumperLayout()).map(
+      (bumper) => makeBumper(bumper.x, bumper.y, bumper),
+    );
+    const areaEffects = (options.areaEffects || createSymmetricAreaEffectsLayout()).map(
+      (zone) => ({
+        x: zone.x,
+        y: zone.y,
+        w: zone.w,
+        h: zone.h,
+        kind: zone.kind,
+      }),
+    );
 
     const walls = [
       makeSegment({ x: 20, y: 20 }, { x: 20, y: 680 }),
@@ -226,16 +336,46 @@
       makeSegment({ x: TOP_GOAL_MAX_X, y: 20 }, { x: 380, y: 20 }),
       makeSegment({ x: 20, y: 680 }, { x: BOTTOM_GOAL_MIN_X, y: 680 }),
       makeSegment({ x: BOTTOM_GOAL_MAX_X, y: 680 }, { x: 380, y: 680 }),
-      makeSegment({ x: 20, y: 140 }, { x: 90, y: 95 }),
-      makeSegment({ x: 380, y: 140 }, { x: 310, y: 95 }),
-      makeSegment({ x: 90, y: 95 }, { x: 118, y: 76 }),
-      makeSegment({ x: 310, y: 95 }, { x: 282, y: 76 }),
-      makeSegment({ x: 20, y: 560 }, { x: 90, y: 605 }),
-      makeSegment({ x: 380, y: 560 }, { x: 310, y: 605 }),
-      makeSegment({ x: 90, y: 605 }, { x: 118, y: 624 }),
-      makeSegment({ x: 310, y: 605 }, { x: 282, y: 624 }),
-      makeSegment({ x: 85, y: 330 }, { x: 145, y: 360 }),
-      makeSegment({ x: 315, y: 330 }, { x: 255, y: 360 }),
+      makeSegment(
+        { x: 20, y: 140 },
+        { x: 90, y: 95 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 380, y: 140 },
+        { x: 310, y: 95 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 90, y: 95 },
+        { x: 118, y: 76 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 310, y: 95 },
+        { x: 282, y: 76 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 20, y: 560 },
+        { x: 90, y: 605 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 380, y: 560 },
+        { x: 310, y: 605 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 90, y: 605 },
+        { x: 118, y: 624 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
+      makeSegment(
+        { x: 310, y: 605 },
+        { x: 282, y: 624 },
+        { kind: "speedPad", boost: 6, restitution: 0.98 },
+      ),
     ];
 
     return {
@@ -244,6 +384,7 @@
       ball,
       flippers,
       bumpers,
+      areaEffects,
       walls,
       ballSpawnBottom: {
         x: CANVAS_WIDTH / 2,
@@ -269,10 +410,10 @@
     gameOver: false,
   });
 
-  const createRuntimeState = () => ({
+  const createRuntimeState = (options = {}) => ({
     meta: { tick: 0 },
     match: createInitialMatchState(),
-    scene: buildScene(),
+    scene: buildScene(options),
   });
 
   const buildManualInputFrame = (inputState = {}) => {
@@ -355,10 +496,31 @@
     });
   };
 
+  const applyAreaEffects = (runtimeState) => {
+    const { ball, areaEffects } = runtimeState.scene;
+    for (const zone of areaEffects) {
+      const overlapsX = ball.x + ball.r >= zone.x && ball.x - ball.r <= zone.x + zone.w;
+      const overlapsY = ball.y + ball.r >= zone.y && ball.y - ball.r <= zone.y + zone.h;
+      if (!overlapsX || !overlapsY) continue;
+
+      const multiplier = AREA_EFFECT_MULTIPLIER[zone.kind];
+      if (!multiplier) continue;
+
+      ball.vx *= multiplier;
+      ball.vy *= multiplier;
+    }
+  };
+
   const stepPhysics = (runtimeState) => {
     const { ball, flippers, bumpers, walls, gravity, friction } =
       runtimeState.scene;
     const events = [];
+
+    const overlapsTopGoalX =
+      ball.x + ball.r >= TOP_GOAL_MIN_X && ball.x - ball.r <= TOP_GOAL_MAX_X;
+    const overlapsBottomGoalX =
+      ball.x + ball.r >= BOTTOM_GOAL_MIN_X &&
+      ball.x - ball.r <= BOTTOM_GOAL_MAX_X;
 
     updateFlipper(flippers.bottomLeft);
     updateFlipper(flippers.bottomRight);
@@ -369,21 +531,33 @@
     ball.vy += gravity * gravityScale;
     ball.vx *= friction;
     ball.vy *= friction;
+    applyAreaEffects(runtimeState);
 
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    if (ball.x < ball.r) {
-      ball.x = ball.r;
+    if (ball.x < PLAYFIELD_LEFT_X + ball.r) {
+      ball.x = PLAYFIELD_LEFT_X + ball.r;
       ball.vx *= -0.7;
     }
-    if (ball.x > CANVAS_WIDTH - ball.r) {
-      ball.x = CANVAS_WIDTH - ball.r;
+    if (ball.x > PLAYFIELD_RIGHT_X - ball.r) {
+      ball.x = PLAYFIELD_RIGHT_X - ball.r;
       ball.vx *= -0.7;
+    }
+    if (ball.y < ball.r && !overlapsTopGoalX) {
+      ball.y = ball.r;
+      ball.vy *= -0.7;
+    }
+    if (ball.y > CANVAS_HEIGHT - ball.r && !overlapsBottomGoalX) {
+      ball.y = CANVAS_HEIGHT - ball.r;
+      ball.vy *= -0.7;
     }
 
     for (const wall of walls) {
-      resolveSegmentCollision(ball, wall, { restitution: 0.85 });
+      resolveSegmentCollision(ball, wall, {
+        restitution: wall.restitution ?? 0.85,
+        boost: wall.kind === "speedPad" ? wall.boost : undefined,
+      });
     }
 
     const flipperSegments = [
@@ -528,6 +702,21 @@
           },
         ]),
       ),
+      bumpers: runtimeState.scene.bumpers.map((bumper) => ({
+        x: bumper.x,
+        y: bumper.y,
+        r: bumper.r,
+        restitution: bumper.restitution,
+        lastHitAt: bumper.lastHitAt,
+        activeUntil: bumper.activeUntil,
+      })),
+      areaEffects: runtimeState.scene.areaEffects.map((zone) => ({
+        x: zone.x,
+        y: zone.y,
+        w: zone.w,
+        h: zone.h,
+        kind: zone.kind,
+      })),
     },
   });
 
@@ -556,6 +745,22 @@
       }
     }
 
+    if (snapshot.scene?.bumpers) {
+      runtimeState.scene.bumpers = snapshot.scene.bumpers.map((bumper) =>
+        makeBumper(bumper.x, bumper.y, bumper),
+      );
+    }
+
+    if (snapshot.scene?.areaEffects) {
+      runtimeState.scene.areaEffects = snapshot.scene.areaEffects.map((zone) => ({
+        x: zone.x,
+        y: zone.y,
+        w: zone.w,
+        h: zone.h,
+        kind: zone.kind,
+      }));
+    }
+
     return runtimeState;
   };
 
@@ -568,12 +773,23 @@
     TOP_GOAL_MAX_X,
     BOTTOM_GOAL_MIN_X,
     BOTTOM_GOAL_MAX_X,
+    PLAYFIELD_LEFT_X,
+    PLAYFIELD_RIGHT_X,
     MIDFIELD_Y,
     GRAVITY_BLEND_HALF_BAND,
+    DEFAULT_BUMPER_RADIUS,
+    DEFAULT_BUMPER_RESTITUTION,
+    AREA_EFFECT_WIDTH,
+    AREA_EFFECT_HEIGHT,
+    AREA_EFFECT_MIDFIELD_MARGIN,
+    AREA_EFFECT_MULTIPLIER,
+    clamp,
     cloneInputState,
     getGravityScale,
     createInitialMatchState,
     createRuntimeState,
+    createSymmetricBumperLayout,
+    createSymmetricAreaEffectsLayout,
     buildInputFrame,
     buildTopAutoInputFrame,
     applyInputFrame,

@@ -21,6 +21,25 @@
     },
   });
 
+  class SoundManager {
+    constructor() {
+      this.sounds = {};
+      this.enabled = true;
+    }
+
+    load(name, url) {
+      const audio = new Audio(url);
+      audio.preload = "auto";
+      this.sounds[name] = audio;
+    }
+
+    play(name) {
+      if (!this.enabled || !this.sounds[name]) return;
+      const sound = this.sounds[name].cloneNode();
+      sound.play().catch(() => {});
+    }
+  }
+
   class GameplayRuntime {
     constructor() {
       this.canvas = null;
@@ -33,6 +52,10 @@
       this.matchId = null;
       this.lastAck = null;
       this.lastTimestamp = 0;
+      this.lastSnapshotAt = 0;
+      this.previousBall = null;
+      this.currentBall = null;
+      this.interpolatedBall = null;
       this.inputState = cloneInputState();
       this.keyState = cloneInputState();
       this.onInputFrame = null;
@@ -40,6 +63,32 @@
       this.rafId = null;
       this.bound = false;
       this.sequence = 0;
+
+      this.sounds = new SoundManager();
+      this.sounds.load("bumper", "sounds/3d-pinball-soundtrack/SOUND104.mp3");
+      this.sounds.load("goal", "sounds/3d-pinball-soundtrack/SOUND136.mp3");
+      this.sounds.load("start", "sounds/3d-pinball-soundtrack/SOUND24.mp3");
+      this.sounds.load("gameover", "sounds/3d-pinball-soundtrack/SOUND1.mp3");
+
+      this.mousePos = { x: 0, y: 0 };
+      this.isDragging = false;
+
+      this.handleMouseDown = (event) => {
+        if (!this.keyState.cheat) return;
+        this.isDragging = true;
+        this.updateMousePos(event);
+      };
+
+      this.handleMouseMove = (event) => {
+        this.updateMousePos(event);
+        if (this.keyState.cheat) {
+          this.emitInputFrame();
+        }
+      };
+
+      this.handleMouseUp = () => {
+        this.isDragging = false;
+      };
 
       this.handleKeyDown = (event) => {
         const action = this.mapKey(event.key);
@@ -106,6 +155,9 @@
         case "Space":
         case "Spacebar":
           return "both";
+        case "g":
+        case "G":
+          return "cheat";
         default:
           return null;
       }
@@ -115,11 +167,36 @@
       return this.localSide === "top";
     }
 
+    updateMousePos(event) {
+      if (!this.canvas) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+      let x = (event.clientX - rect.left) * scaleX;
+      let y = (event.clientY - rect.top) * scaleY;
+
+      // Flip coordinates if viewing from top perspective so drag matches visual
+      if (this.isTopPerspective()) {
+        x = CANVAS_WIDTH - x;
+        y = CANVAS_HEIGHT - y;
+      }
+
+      this.mousePos = { x, y };
+      if (this.isDragging) {
+        this.emitInputFrame();
+      }
+    }
+
     bindInput() {
       if (this.bound) return;
       window.addEventListener("keydown", this.handleKeyDown);
       window.addEventListener("keyup", this.handleKeyUp);
       window.addEventListener("blur", this.handleBlur);
+      if (this.canvas) {
+        this.canvas.addEventListener("mousedown", this.handleMouseDown);
+        window.addEventListener("mousemove", this.handleMouseMove);
+        window.addEventListener("mouseup", this.handleMouseUp);
+      }
       this.bound = true;
     }
 
@@ -128,6 +205,11 @@
       window.removeEventListener("keydown", this.handleKeyDown);
       window.removeEventListener("keyup", this.handleKeyUp);
       window.removeEventListener("blur", this.handleBlur);
+      if (this.canvas) {
+        this.canvas.removeEventListener("mousedown", this.handleMouseDown);
+        window.removeEventListener("mousemove", this.handleMouseMove);
+        window.removeEventListener("mouseup", this.handleMouseUp);
+      }
       this.bound = false;
     }
 
@@ -153,6 +235,7 @@
       this.bindInput();
       this.syncHud();
       this.draw();
+      this.sounds.play("start");
 
       if (!this.rafId) {
         this.rafId = requestAnimationFrame((timestamp) => this.loop(timestamp));
@@ -175,6 +258,10 @@
 
       if (options.reset !== false) {
         this.runtimeState = createRuntimeState();
+        this.previousBall = null;
+        this.currentBall = null;
+        this.interpolatedBall = null;
+        this.lastSnapshotAt = 0;
       }
 
       if (typeof options.status === "string") {
@@ -201,15 +288,22 @@
             left: input.right,
             right: input.left,
             both: input.both,
+            cheat: input.cheat,
           }
         : input;
 
-      return {
+      const payload = {
         roomCode: this.roomCode,
         matchId: this.matchId,
         seq: ++this.sequence,
         input: effectiveInput,
       };
+
+      if (input.cheat) {
+        payload.cheatPos = { ...this.mousePos };
+      }
+
+      return payload;
     }
 
     emitInputFrame() {
@@ -229,6 +323,47 @@
       if (options.matchId && !this.matchId) {
         this.matchId = options.matchId;
       }
+
+      const nextBall = snapshot?.scene?.ball
+        ? { ...snapshot.scene.ball }
+        : null;
+      const currentVisualBall = this.getRenderedBall();
+
+      // Sound detection
+      if (snapshot.match) {
+        const oldMatch = this.runtimeState.match;
+        if (
+          snapshot.match.score > oldMatch.score ||
+          snapshot.match.topScore > oldMatch.topScore
+        ) {
+          // Detect if it was a goal (score changed by 1) or bumper hit (score changed by 100)
+          const scoreDiff = snapshot.match.score - oldMatch.score;
+          const topScoreDiff = snapshot.match.topScore - oldMatch.topScore;
+          if (scoreDiff === 1 || topScoreDiff === 1) {
+            this.sounds.play("goal");
+          }
+        }
+        if (snapshot.match.gameOver && !oldMatch.gameOver) {
+          this.sounds.play("gameover");
+        }
+      }
+
+      if (snapshot.scene?.bumpers) {
+        const oldBumpers = this.runtimeState.scene.bumpers;
+        snapshot.scene.bumpers.forEach((b, i) => {
+          if (oldBumpers[i] && b.activeUntil > oldBumpers[i].activeUntil) {
+            this.sounds.play("bumper");
+          }
+        });
+      }
+
+      if (nextBall) {
+        this.previousBall = currentVisualBall ? { ...currentVisualBall } : nextBall;
+        this.currentBall = nextBall;
+        this.interpolatedBall = { ...this.previousBall };
+        this.lastSnapshotAt = performance.now();
+      }
+
       applySnapshot(this.runtimeState, snapshot);
       if (options.ack) {
         this.lastAck = options.ack;
@@ -240,6 +375,30 @@
 
       this.syncHud();
       this.draw();
+    }
+
+    getRenderedBall() {
+      if (this.interpolatedBall) return this.interpolatedBall;
+      if (this.currentBall) return this.currentBall;
+      return this.runtimeState?.scene?.ball || null;
+    }
+
+    updateInterpolatedBall(now = performance.now()) {
+      if (!this.currentBall) return;
+      if (!this.previousBall) {
+        this.interpolatedBall = { ...this.currentBall };
+        return;
+      }
+
+      const elapsed = now - this.lastSnapshotAt;
+      const alpha = Math.max(0, Math.min(1, elapsed / 50));
+      this.interpolatedBall = {
+        x: this.previousBall.x + (this.currentBall.x - this.previousBall.x) * alpha,
+        y: this.previousBall.y + (this.currentBall.y - this.previousBall.y) * alpha,
+        vx: this.previousBall.vx + (this.currentBall.vx - this.previousBall.vx) * alpha,
+        vy: this.previousBall.vy + (this.currentBall.vy - this.previousBall.vy) * alpha,
+        r: this.currentBall.r,
+      };
     }
 
     getRuntimeState() {
@@ -297,6 +456,7 @@
     loop(timestamp) {
       if (!this.running) return;
       this.lastTimestamp = timestamp;
+      this.updateInterpolatedBall();
       this.draw();
       this.rafId = requestAnimationFrame((nextTimestamp) => this.loop(nextTimestamp));
     }
@@ -355,7 +515,12 @@
       ctx.lineWidth = 6;
       ctx.lineCap = "round";
       for (const wall of this.runtimeState.scene.walls) {
-        ctx.strokeStyle = wall.oneWay ? "#00f2ff" : "#666";
+        ctx.strokeStyle =
+          wall.kind === "speedPad"
+            ? "#ffd54f"
+            : wall.oneWay
+              ? "#00f2ff"
+              : "#666";
         ctx.beginPath();
         ctx.moveTo(wall.p1.x, wall.p1.y);
         ctx.lineTo(wall.p2.x, wall.p2.y);
@@ -379,6 +544,45 @@
       }
     }
 
+    drawAreaEffects(ctx) {
+      const zones = this.runtimeState.scene.areaEffects || [];
+      for (const zone of zones) {
+        ctx.save();
+        const isSpeed = zone.kind === "speed";
+        const label = isSpeed ? "SPEED UP" : "SLOWDOWN";
+        ctx.fillStyle = isSpeed
+          ? "rgba(255, 213, 79, 0.18)"
+          : "rgba(64, 140, 255, 0.18)";
+        ctx.strokeStyle = isSpeed
+          ? "rgba(255, 213, 79, 0.85)"
+          : "rgba(64, 140, 255, 0.85)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(zone.x, zone.y, zone.w, zone.h, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        const centerX = zone.x + zone.w / 2;
+        const centerY = zone.y + zone.h / 2;
+        const lines = label.split(" ");
+        const lineHeight = 14;
+
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.font = "600 11px Roboto, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.translate(centerX, centerY);
+        if (this.isTopPerspective()) {
+          ctx.rotate(Math.PI);
+        }
+        lines.forEach((line, index) => {
+          const y = (index - (lines.length - 1) / 2) * lineHeight + 1;
+          ctx.fillText(line, 0, y);
+        });
+        ctx.restore();
+      }
+    }
+
     drawFlipper(ctx, flipper) {
       const segment = getFlipperSegment(flipper);
       ctx.save();
@@ -393,7 +597,8 @@
     }
 
     drawBall(ctx) {
-      const { ball } = this.runtimeState.scene;
+      const ball = this.getRenderedBall();
+      if (!ball) return;
       const gradient = ctx.createRadialGradient(
         ball.x - 3,
         ball.y - 4,
@@ -444,6 +649,7 @@
 
       this.drawBackground(ctx);
       this.drawWalls(ctx);
+      this.drawAreaEffects(ctx);
       this.drawBumpers(ctx);
       this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomLeft);
       this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomRight);
