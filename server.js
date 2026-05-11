@@ -5,6 +5,7 @@ const argon2 = require("argon2");
 const session = require("express-session");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
+const GameplayCore = require("./public/scripts/gameplayCore.js");
 
 const app = express();
 app.use(express.static("public"));
@@ -87,9 +88,152 @@ const io = new Server(httpServer);
 // Room management
 let rooms = {}; // roomCode -> { players: {socketId: {username, ready}}, owner }
 let queue = []; // [{ socketId, username }]
+let activeMatches = {}; // roomCode -> authoritative runtime
+
+const SERVER_TICK_MS = Math.round(1000 / 60);
+const SNAPSHOT_EVERY_TICKS = 3;
 
 function makeRoomCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function getMatchPlayers(room) {
+  if (!room) return [];
+  return Object.keys(room.players).slice(0, 2);
+}
+
+function assignSides(room) {
+  const playerIds = getMatchPlayers(room);
+  if (playerIds.length < 2) return null;
+
+  let bottom = room.owner;
+  let top = playerIds.find((id) => id !== bottom);
+
+  if (!bottom || !room.players[bottom] || !top) {
+    const stableIds = [...playerIds].sort();
+    [bottom, top] = stableIds;
+  }
+
+  return {
+    sideBySocketId: {
+      [bottom]: "bottom",
+      [top]: "top",
+    },
+    socketIdBySide: {
+      bottom,
+      top,
+    },
+  };
+}
+
+function stopAuthoritativeMatch(roomCode) {
+  const match = activeMatches[roomCode];
+  if (!match) return;
+  clearInterval(match.intervalId);
+  delete activeMatches[roomCode];
+}
+
+function emitSnapshot(roomCode, match, force = false) {
+  if (!match) return;
+  if (!force && match.runtime.meta.tick % SNAPSHOT_EVERY_TICKS !== 0) return;
+
+  io.to(roomCode).emit("state_snapshot", {
+    roomCode,
+    matchId: match.matchId,
+    tick: match.runtime.meta.tick,
+    ack: { ...match.lastSeqBySocketId },
+    state: GameplayCore.serializeState(match.runtime),
+  });
+}
+
+function endAuthoritativeMatch(roomCode, reason, winner) {
+  const match = activeMatches[roomCode];
+  if (!match) return;
+
+  match.runtime.match.gameOver = true;
+  if (!match.runtime.match.status.startsWith("Game Over")) {
+    if (winner === "draw") match.runtime.match.status = "Game Over - Draw";
+    else if (winner === "top") match.runtime.match.status = "Game Over - Top Wins";
+    else match.runtime.match.status = "Game Over - Bottom Wins";
+  }
+
+  emitSnapshot(roomCode, match, true);
+  io.to(roomCode).emit("match_end", {
+    roomCode,
+    matchId: match.matchId,
+    reason,
+    winner,
+    final: {
+      tick: match.runtime.meta.tick,
+      score: match.runtime.match.score,
+      topScore: match.runtime.match.topScore,
+      lives: match.runtime.match.lives,
+      topLives: match.runtime.match.topLives,
+      status: match.runtime.match.status,
+      gameOver: true,
+    },
+  });
+
+  stopAuthoritativeMatch(roomCode);
+}
+
+function startAuthoritativeMatch(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || activeMatches[roomCode]) return;
+
+  const sides = assignSides(room);
+  if (!sides) return;
+
+  const runtime = GameplayCore.createRuntimeState();
+  runtime.match.status = "Running";
+  const matchId = `${roomCode}:${Date.now()}`;
+
+  const match = {
+    matchId,
+    runtime,
+    sideBySocketId: sides.sideBySocketId,
+    socketIdBySide: sides.socketIdBySide,
+    latestInputBySocketId: {},
+    lastSeqBySocketId: {},
+    intervalId: null,
+  };
+
+  activeMatches[roomCode] = match;
+
+  for (const [socketId, side] of Object.entries(match.sideBySocketId)) {
+    io.to(socketId).emit("match_init", {
+      roomCode,
+      matchId,
+      yourSide: side,
+      tickRate: 60,
+      tick: runtime.meta.tick,
+      state: GameplayCore.serializeState(runtime),
+    });
+  }
+
+  match.intervalId = setInterval(() => {
+    const bottomSocketId = match.socketIdBySide.bottom;
+    const topSocketId = match.socketIdBySide.top;
+
+    const bottomInput = match.latestInputBySocketId[bottomSocketId]?.input || {};
+    const topInput = match.latestInputBySocketId[topSocketId]?.input || {};
+
+    const inputFrame = GameplayCore.buildInputFrame(runtime, {
+      bottomInput,
+      topInput,
+      topControlMode: "manual",
+    });
+
+    GameplayCore.stepRuntime(runtime, inputFrame);
+
+    if (runtime.match.gameOver) {
+      const winner = GameplayCore.getWinner(runtime.match);
+      endAuthoritativeMatch(roomCode, "game_over", winner);
+      return;
+    }
+
+    emitSnapshot(roomCode, match, false);
+  }, SERVER_TICK_MS);
 }
 
 io.on("connection", (socket) => {
@@ -127,6 +271,7 @@ io.on("connection", (socket) => {
       io.to(code).emit("room_update", rooms[code]);
       // immediately start game for 2-player match
       io.to(code).emit("game_start");
+      startAuthoritativeMatch(code);
     }
   });
 
@@ -186,6 +331,7 @@ io.on("connection", (socket) => {
     io.to(code).emit("room_update", room);
     io.to(code).emit("room_joined", { code });
     io.to(code).emit("game_start");
+    startAuthoritativeMatch(code);
   });
 
   socket.on("leave_room", (code) => {
@@ -208,12 +354,37 @@ io.on("connection", (socket) => {
     const allReady =
       Object.values(room.players).length > 0 &&
       Object.values(room.players).every((p) => p.ready);
-    if (allReady) io.to(code).emit("game_start");
+    if (allReady) {
+      io.to(code).emit("game_start");
+      startAuthoritativeMatch(code);
+    }
+  });
+
+  socket.on("input_frame", ({ roomCode, matchId, seq, input }) => {
+    const match = activeMatches[roomCode];
+    if (!match) return;
+    if (match.matchId !== matchId) return;
+    if (!match.sideBySocketId[socket.id]) return;
+
+    const previousSeq = match.lastSeqBySocketId[socket.id] || 0;
+    if (typeof seq !== "number" || seq <= previousSeq) return;
+
+    match.lastSeqBySocketId[socket.id] = seq;
+    match.latestInputBySocketId[socket.id] = {
+      seq,
+      input: GameplayCore.cloneInputState(input),
+    };
   });
 
   socket.on("forfeit", (code) => {
     const room = rooms[code];
     if (!room) return;
+    const match = activeMatches[code];
+    if (match && match.sideBySocketId[socket.id]) {
+      const forfeiterSide = match.sideBySocketId[socket.id];
+      const winner = forfeiterSide === "bottom" ? "top" : "bottom";
+      endAuthoritativeMatch(code, "forfeit", winner);
+    }
     // notify all players that someone forfeited
     io.to(code).emit("player_forfeit", { socketId: socket.id });
 
@@ -234,6 +405,12 @@ io.on("connection", (socket) => {
     for (const code of Object.keys(rooms)) {
       const room = rooms[code];
       if (room.players[socket.id]) {
+        const match = activeMatches[code];
+        if (match && match.sideBySocketId[socket.id]) {
+          const disconnectingSide = match.sideBySocketId[socket.id];
+          const winner = disconnectingSide === "bottom" ? "top" : "bottom";
+          endAuthoritativeMatch(code, "disconnect", winner);
+        }
         delete room.players[socket.id];
         io.to(code).emit("room_update", room);
         if (Object.keys(room.players).length === 0) delete rooms[code];

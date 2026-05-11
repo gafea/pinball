@@ -1,0 +1,43 @@
+Group 27 Project Details
+1.⁠ ⁠Title: Quantum Entanglement
+
+ 
+
+2.⁠ ⁠Game home page
+The home page will show the players how the game is played and handle the player account. 
+2.1 Game Description and Instructions
+The “How to Play" section will talks about the game play and the control of the game.
+2.2 Player Registration
+For new users, a registration modal or section will be provided. They will input information like username, email and password. The client will validate the value, send them to the server, and the server will store the data safely in the database (hashes the password with argon2).
+2.3 Player Sign-In
+Players can log-in and access their profiles. There will be session management and persistence data to enhance user experience. 
+2.4 Player Pair-Up (Matchmaking)
+The core of the real-time experience is the "Lobby" or "Pair-Up" system. The players can enter a matchmaking queue or invite friends to a private room.
+2.5. Visual Layout Concept
+•⁠  ⁠Header: Game Logo and "High Scores" leaderboard link.
+•⁠  ⁠Hero Section: "Sign In" and "Register" buttons.
+•⁠  ⁠Main Content: Two columns. Left column for "Instructions"; Right column for the "Lobby/Matchmaking" interface.
+•⁠  ⁠Footer: Project credits and link to the GitHub repository.
+
+ 
+
+3.⁠ ⁠It’s a 2 player PvP Pinball game where there are obstacles, bouncy obstacles, speedup/speeddown pads across the screen, and users would gain control to left and right stick with Z and M key respectively. The middle of the screen will be considered as the highest point of the table and the pinball will respect the effect of gravity and fall towards the player. The player’s goal is to keep the pinball on the table and bounce the ball to the opposite side as fast as possible. If the pinball falls outside the table of any user’s side, that user will lose if the ball fall outside the table for 3 times.
+
+ 
+
+4. The Game Over page would include the following content:
+
+* Player Statistics
+  * Score
+  * Successful ball bounces
+  * Total time survived
+  * Latest XP & Win count
+* Player Ranking
+  * Latest position on the leaderboard of Win Rate & Scores
+* Navigation
+  * Rematch Button
+  * Back to Home
+
+ 
+
+5.⁠ ⁠For cheating, if user pressed G key on their keyboard, users will be able to use their mouse to drag the pinball and shoot directly to the opposite side in high speed, gaining unfair advantage. A “Cheating in Progress” badge will be shown on both player’s screen and both users will gain this cheating effect at the same time.

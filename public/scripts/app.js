@@ -30,6 +30,95 @@ async function init() {
   );
   View.register("tertiary-view", "idle-view", "queue-status-view");
 
+  let currentMatchId = null;
+  let localSide = "bottom";
+
+  function getGameRuntime() {
+    const gm = window.gameManager;
+    if (!gm) return null;
+    if (
+      typeof gm.start !== "function" ||
+      typeof gm.stop !== "function" ||
+      typeof gm.isRunning !== "function" ||
+      typeof gm.applyAuthoritativeSnapshot !== "function"
+    ) {
+      return null;
+    }
+    return gm;
+  }
+
+  function showLobbyHome() {
+    View.show("home-view");
+    View.show("match-making-view");
+    View.show("idle-view");
+  }
+
+  function handleLocalGameOver(state) {
+    const bottomScore = state?.score ?? 0;
+    const topScore = state?.topScore ?? 0;
+    const bottomLives = state?.lives ?? 0;
+    const topLives = state?.topLives ?? 0;
+
+    let outcome = "Draw";
+    if (bottomLives > topLives) outcome = "Bottom wins";
+    else if (topLives > bottomLives) outcome = "Top wins";
+    else if (bottomScore > topScore) outcome = "Bottom wins";
+    else if (topScore > bottomScore) outcome = "Top wins";
+
+    $("#game-over-message").text(
+      `${outcome}! Bottom ${bottomScore} (${bottomLives} lives) vs Top ${topScore} (${topLives} lives).`,
+    );
+    View.show("game-over-view");
+  }
+
+  function startGameplayRuntime(status = "Running", reset = false) {
+    const gm = getGameRuntime();
+    if (!gm) return;
+    gm.start({
+      roomCode: currentRoom || "-",
+      matchId: currentMatchId,
+      localSide,
+      status,
+      reset,
+      onGameOver: handleLocalGameOver,
+      onInputFrame: (payload) => {
+        socket.emit("input_frame", payload);
+      },
+    });
+  }
+
+  function stopGameplayRuntime(
+    status = "Stopped",
+    roomCode = currentRoom || "-",
+  ) {
+    const gm = getGameRuntime();
+    if (!gm) return;
+    gm.stop({
+      reset: true,
+      roomCode,
+      status,
+    });
+  }
+
+  function leaveCurrentMatch({
+    notifyServer = true,
+    stopStatus = "Waiting",
+    showHome = true,
+  } = {}) {
+    const roomToLeave = currentRoom;
+    stopGameplayRuntime(stopStatus, roomToLeave || "-");
+    if (notifyServer && roomToLeave) {
+      socket.emit("forfeit", roomToLeave);
+    }
+    currentRoom = null;
+    currentMatchId = null;
+    $("#private-room-code-input").val("");
+    $("#private-join-code").hide();
+    if (showHome) {
+      showLobbyHome();
+    }
+  }
+
   // account registration
   $("#btn-register").click(async (e) => {
     e.preventDefault();
@@ -75,6 +164,8 @@ async function init() {
 
   // player sign out
   $("#btn-signout").click(async () => {
+    stopGameplayRuntime("Signed out");
+    currentRoom = null;
     await api("/signout");
     // hide signout immediately and reload
     $("#btn-signout").hide();
@@ -116,6 +207,7 @@ async function init() {
   // player leave the match-making queue after joined or cancel private room
   $("#btn-leave-queue").click(async () => {
     if (currentRoom) {
+      stopGameplayRuntime("Left room");
       // owner cancelling private room
       socket.emit("cancel_private_room", currentRoom);
       currentRoom = null;
@@ -133,9 +225,15 @@ async function init() {
   // forfeit the current match and return to main page
   $("#btn-forfeit").click(async () => {
     if (!currentRoom) return showToast("Not in a room", "error", 3000);
-    socket.emit("forfeit", currentRoom);
-    currentRoom = null;
-    View.show("match-making-view");
+    leaveCurrentMatch({ notifyServer: true, stopStatus: "Forfeited" });
+  });
+
+  $("#btn-back-home").click(() => {
+    leaveCurrentMatch({
+      notifyServer: !!currentRoom,
+      stopStatus: "Waiting",
+      showHome: true,
+    });
   });
 
   // player join the match-making queue but something went wrong (e.g. already in queue)
@@ -147,7 +245,6 @@ async function init() {
   // server created a private room, show the join code on screen
   socket.on("private_room_created", ({ code }) => {
     currentRoom = code;
-    console.log(`Created private room with code: ${code}`);
     // show join code
     $("#join-code").text(code);
     $("#private-join-code").show();
@@ -163,18 +260,10 @@ async function init() {
     stopQueueTimer();
     resetQueueTimerDisplay();
     View.show("game-play-view");
+    stopGameplayRuntime("Room joined", code);
   });
 
-  socket.on("room_update", (room) => {
-    // const ul = document.getElementById('room-players');
-    // ul.innerHTML = '';
-    // for (const id in room.players) {
-    //     const p = room.players[id];
-    //     const li = document.createElement('li');
-    //     li.textContent = p.username + (p.ready ? ' (ready)' : '');
-    //     ul.appendChild(li);
-    // }
-  });
+  socket.on("room_update", () => {});
 
   // not able to join a room (e.g. wrong code, room full), show error message
   socket.on("room_error", (msg) => showToast(msg, "error", 3000));
@@ -184,15 +273,74 @@ async function init() {
     stopQueueTimer();
     resetQueueTimerDisplay();
     View.show("game-play-view");
+    startGameplayRuntime("Waiting for server state", true);
     showToast("Match found!", "success", 3000);
   });
 
-  // TODO: a player in the same room forfeited, show message and goes to game over screen
+  socket.on("match_init", ({ roomCode, matchId, yourSide, state }) => {
+    currentRoom = roomCode || currentRoom;
+    currentMatchId = matchId;
+    localSide = yourSide || "bottom";
+    const gm = getGameRuntime();
+    if (!gm) return;
+    View.show("game-play-view");
+    gm.start({
+      roomCode: currentRoom || "-",
+      matchId: currentMatchId,
+      localSide,
+      status: state?.match?.status || "Running",
+      reset: true,
+      onGameOver: handleLocalGameOver,
+      onInputFrame: (payload) => {
+        socket.emit("input_frame", payload);
+      },
+    });
+    gm.applyAuthoritativeSnapshot(state, { matchId: currentMatchId });
+  });
+
+  socket.on("state_snapshot", ({ matchId, state, ack }) => {
+    if (currentMatchId && matchId !== currentMatchId) return;
+    const gm = getGameRuntime();
+    if (!gm) return;
+    gm.applyAuthoritativeSnapshot(state, { matchId, ack });
+  });
+
+  socket.on("match_end", ({ matchId, final, winner, reason }) => {
+    if (currentMatchId && matchId !== currentMatchId) return;
+    currentMatchId = null;
+    const gm = getGameRuntime();
+    if (gm && final) {
+      gm.applyAuthoritativeSnapshot(
+        {
+          tick: final.tick ?? 0,
+          match: {
+            score: final.score,
+            topScore: final.topScore,
+            lives: final.lives,
+            topLives: final.topLives,
+            status: final.status || "Game Over",
+            gameOver: true,
+          },
+        },
+        {},
+      );
+    }
+
+    const summary =
+      winner === "draw"
+        ? `Draw! Reason: ${reason}.`
+        : `${winner === "bottom" ? "Bottom" : "Top"} wins! Reason: ${reason}.`;
+    $("#game-over-message").text(summary);
+    View.show("game-over-view");
+  });
+
   socket.on("player_forfeit", () => {
     showToast("A player forfeited!", "warning", 3000);
-    View.show("idle-view");
-    View.show("home-view");
-    $("#private-room-code-input").val("");
+    leaveCurrentMatch({
+      notifyServer: false,
+      stopStatus: "Opponent forfeited",
+      showHome: true,
+    });
   });
 
   // Check session

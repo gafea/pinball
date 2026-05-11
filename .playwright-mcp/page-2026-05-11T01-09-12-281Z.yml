@@ -1,0 +1,42 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: sports_esports
+      - generic [ref=e6]: Quantum Entanglement
+    - button "Sign out" [ref=e57] [cursor=pointer]
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - heading "info How to play" [level=2] [ref=e9]:
+        - generic [ref=e10]: info
+        - text: How to play
+      - paragraph [ref=e11]: Welcome to the ultimate 2-player real-time pinball challenge. Compete against opponents worldwide to keep the ball alive and rack up the highest score!
+      - list [ref=e12]:
+        - listitem [ref=e13]:
+          - generic [ref=e14]: keyboard
+          - strong [ref=e15]: "Left Flipper:"
+          - text: Press A or ←
+        - listitem [ref=e16]:
+          - generic [ref=e17]: keyboard
+          - strong [ref=e18]: "Right Flipper:"
+          - text: Press D or →
+        - listitem [ref=e19]:
+          - generic [ref=e20]: star
+          - strong [ref=e21]: "Goal:"
+          - text: Hit targets to score. If the ball falls, you lose a life!
+    - generic [ref=e58]:
+      - heading "group Match-making" [level=2] [ref=e59]:
+        - generic [ref=e60]: group
+        - text: Match-making
+      - heading "Welcome, 🐹Sync QA!" [level=3] [ref=e61]
+      - generic [ref=e62]:
+        - paragraph [ref=e63]: Ready to compete in real-time?
+        - button "play_arrow FIND A MATCH" [ref=e64] [cursor=pointer]:
+          - generic [ref=e65]: play_arrow
+          - text: FIND A MATCH
+        - button "lock CREATE PRIVATE ROOM" [ref=e66] [cursor=pointer]:
+          - generic [ref=e67]: lock
+          - text: CREATE PRIVATE ROOM
+        - textbox "Enter private room code" [ref=e68]
+        - button "key JOIN PRIVATE ROOM" [ref=e69] [cursor=pointer]:
+          - generic [ref=e70]: key
+          - text: JOIN PRIVATE ROOM

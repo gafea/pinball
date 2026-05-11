@@ -1,0 +1,33 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: sports_esports
+      - generic [ref=e6]: Quantum Entanglement
+    - button "Sign out" [ref=e57] [cursor=pointer]
+  - generic [ref=e79]:
+    - generic [ref=e80]:
+      - heading "sports_esports Game Room" [level=2] [ref=e81]:
+        - generic [ref=e82]: sports_esports
+        - text: Game Room
+      - button "Forfeit & Leave" [ref=e83] [cursor=pointer]
+    - generic [ref=e84]:
+      - generic [ref=e85]:
+        - text: "Room:"
+        - strong [ref=e86]: IS7DQ0
+      - generic [ref=e87]:
+        - text: "Bottom Points:"
+        - strong [ref=e88]: "0"
+      - generic [ref=e89]:
+        - text: "Top Points:"
+        - strong [ref=e90]: "1"
+      - generic [ref=e91]:
+        - text: "Bottom Lives:"
+        - strong [ref=e92]: "2"
+      - generic [ref=e93]:
+        - text: "Top Lives:"
+        - strong [ref=e94]: "3"
+      - generic [ref=e95]:
+        - text: "Status:"
+        - strong [ref=e96]: Running
+    - generic "Pinball gameplay canvas" [ref=e98]
+    - paragraph [ref=e99]: "Versus board: defend the bottom side with Z/M and send the ball into the top drain. Legacy controls A/D, ←/→, and Space still work for local testing."
