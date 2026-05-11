@@ -339,42 +339,42 @@
       makeSegment(
         { x: 20, y: 140 },
         { x: 90, y: 95 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 380, y: 140 },
         { x: 310, y: 95 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 90, y: 95 },
         { x: 118, y: 76 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 310, y: 95 },
         { x: 282, y: 76 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 20, y: 560 },
         { x: 90, y: 605 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 380, y: 560 },
         { x: 310, y: 605 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 90, y: 605 },
         { x: 118, y: 624 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
       makeSegment(
         { x: 310, y: 605 },
         { x: 282, y: 624 },
-        { kind: "speedPad", boost: 3, restitution: 0.98 },
+        { kind: "speedPad", boost: 0, restitution: 0.98 },
       ),
     ];
 
