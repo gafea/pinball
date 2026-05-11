@@ -95,16 +95,16 @@
       this.previousInputState = cloneInputState();
 
       this.sounds = new SoundManager();
-      this.sounds.load("bumper", "sounds/3d-pinball-soundtrack/SOUND104.mp3");
-      this.sounds.load("goal", "sounds/3d-pinball-soundtrack/SOUND136.mp3");
-      this.sounds.load("start", "sounds/3d-pinball-soundtrack/SOUND24.mp3");
+      this.sounds.load("bumper", "sounds/bumper.mp3");
+      this.sounds.load("goal", "sounds/goal.mp3");
+      this.sounds.load("start", "sounds/start.mp3");
       this.sounds.load("flipflap", "sounds/flipflap.mp3");
       this.sounds.load("win", "sounds/win.mp3");
       this.sounds.load("lose", "sounds/lose.mp3");
 
       this.sprites = new ImageManager();
       this.sprites.load("ball", "images/ball.png");
-      this.sprites.load("bumper", "images/bouncyobstacles.png");
+      this.sprites.load("bumper", "images/bumper.png");
       this.sprites.load("p1l", "images/p1l.png");
       this.sprites.load("p1r", "images/p1r.png");
       this.sprites.load("p2l", "images/p2l.png");

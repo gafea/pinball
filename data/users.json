@@ -70,5 +70,21 @@
     "avatar": "Hamster",
     "name": "Sync QA",
     "password": "$argon2id$v=19$m=65536,t=3,p=4$IuMoTHliU86CJRkQtJyWEg$gUsx7GmRUTsWLdOuEHXpcyUTefYTEZyjHWsPJSn1y3I"
+  },
+  "a": {
+    "avatar": "Anon",
+    "name": "a",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$tMOK6SICzVusqkpKAuIrNQ$Z4FHeg5UUx8GxaChTs6bHBQAcW9aIpRe3m3/4U0rhRw",
+    "wins": 1,
+    "matches": 2,
+    "xp": 50
+  },
+  "b": {
+    "avatar": "Hamster",
+    "name": "b",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$swdqPqFuEfLKRlSduUWIUg$cjcgdcRoMuMyXj5pxrs45xdYZ850UHuwUwg8gYWYJBI",
+    "wins": 1,
+    "matches": 2,
+    "xp": 50
   }
 }
