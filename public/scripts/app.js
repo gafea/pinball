@@ -364,7 +364,7 @@ async function init() {
             gameOver: true,
           },
         },
-        {},
+        { winner },
       );
 
       // Update Game Over Stats
@@ -380,7 +380,7 @@ async function init() {
         $("#stat-wins").text(v.user.wins || "..."); // This might be stale without a fresh fetch
         // Re-fetch leaderboard to get latest ranking position for this user
         const lb = await api("/leaderboard");
-        const entry = lb.find(e => e.username === v.user.username);
+        const entry = lb.find((e) => e.username === v.user.username);
         if (entry) {
           $("#stat-wins").text(entry.wins);
           $("#stat-winrate").text(`${entry.winRate}%`);
@@ -396,16 +396,17 @@ async function init() {
       resultMessage = isWinner ? "🎉 YOU WIN!" : "💀 YOU LOSE";
     }
 
-    const humanReason = {
-      game_over: "Match complete",
-      time_up: "Time is up",
-      forfeit: "Player forfeited",
-      disconnect: "Player disconnected",
-    }[reason] || reason;
+    const humanReason =
+      {
+        game_over: "Match complete",
+        time_up: "Time is up",
+        forfeit: "Player forfeited",
+        disconnect: "Player disconnected",
+      }[reason] || reason;
 
     $("#game-over-message").html(
       `<div style="font-size: 2rem; font-weight: bold; margin-bottom: 8px;">${resultMessage}</div>` +
-      `<div style="color: rgba(255,255,255,0.6)">Reason: ${humanReason}</div>`
+        `<div style="color: rgba(255,255,255,0.6)">Reason: ${humanReason}</div>`,
     );
     View.show("game-over-view");
     await refreshLeaderboard();

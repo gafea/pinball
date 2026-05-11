@@ -27,9 +27,17 @@
     <link rel="stylesheet" href="/stylesheets/style.css" />
     <link rel="stylesheet" href="/stylesheets/toast.css" />
     <style>
-      .game-over-card { text-align: center; }
-      .game-over-title { justify-content: center; }
-      .game-over-msg { font-size: 1.5rem; font-weight: bold; margin: 16px 0; }
+      .game-over-card {
+        text-align: center;
+      }
+      .game-over-title {
+        justify-content: center;
+      }
+      .game-over-msg {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 16px 0;
+      }
       .game-stats-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -45,12 +53,23 @@
         max-width: 440px;
         margin: 0 auto;
       }
-      .btn-row { margin-top: 32px; display: flex; justify-content: center; gap: 16px; }
-      .reason-text { color: rgba(255, 255, 255, 0.6); margin-top: 8px; }
+      .btn-row {
+        margin-top: 32px;
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+      }
+      .reason-text {
+        color: rgba(255, 255, 255, 0.6);
+        margin-top: 8px;
+      }
       footer {
-        margin-top: 48px; padding: 24px; text-align: center;
-        border-top: 1px solid rgba(255,255,255,0.1);
-        color: rgba(255,255,255,0.4); font-size: 0.9rem;
+        margin-top: 48px;
+        padding: 24px;
+        text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.9rem;
       }
     </style>
   </head>
@@ -90,7 +109,8 @@
                 style="font-size: 18px; vertical-align: middle"
                 >keyboard</span
               >
-              <strong>Left Flipper:</strong> Press <kbd>Z</kbd> (or <kbd>A</kbd>)
+              <strong>Left Flipper:</strong> Press <kbd>Z</kbd> (or
+              <kbd>A</kbd>)
             </li>
             <li>
               <span
@@ -98,7 +118,8 @@
                 style="font-size: 18px; vertical-align: middle"
                 >keyboard</span
               >
-              <strong>Right Flipper:</strong> Press <kbd>M</kbd> (or <kbd>D</kbd>)
+              <strong>Right Flipper:</strong> Press <kbd>M</kbd> (or
+              <kbd>D</kbd>)
             </li>
             <li>
               <span
@@ -106,7 +127,8 @@
                 style="font-size: 18px; vertical-align: middle"
                 >auto_fix_high</span
               >
-              <strong>Cheat Mode:</strong> Hold <kbd>G</kbd> & Ball follows Mouse
+              <strong>Cheat Mode:</strong> Hold <kbd>G</kbd> & Ball follows
+              Mouse
             </li>
             <li>
               <span
@@ -266,10 +288,22 @@
           <div class="gameplay-hud">
             <span>Room: <strong id="game-room-code">-</strong></span>
             <span>You are: <strong id="game-local-side">Bottom</strong></span>
-            <span><span id="game-score-label">Bottom Points</span>: <strong id="game-score">0</strong></span>
-            <span><span id="game-top-score-label">Top Points</span>: <strong id="game-top-score">0</strong></span>
-            <span><span id="game-lives-label">Bottom Lives</span>: <strong id="game-lives">3</strong></span>
-            <span><span id="game-top-lives-label">Top Lives</span>: <strong id="game-top-lives">3</strong></span>
+            <span
+              ><span id="game-score-label">Bottom Points</span>:
+              <strong id="game-score">0</strong></span
+            >
+            <span
+              ><span id="game-top-score-label">Top Points</span>:
+              <strong id="game-top-score">0</strong></span
+            >
+            <span
+              ><span id="game-lives-label">Bottom Lives</span>:
+              <strong id="game-lives">3</strong></span
+            >
+            <span
+              ><span id="game-top-lives-label">Top Lives</span>:
+              <strong id="game-top-lives">3</strong></span
+            >
             <span>Status: <strong id="game-status">Waiting</strong></span>
           </div>
 
@@ -291,19 +325,22 @@
         </section>
       </div>
 
-      <div id="game-over-view" class="primary-view container" style="display: none">
+      <div
+        id="game-over-view"
+        class="primary-view container"
+        style="display: none"
+      >
         <section class="card game-over-card">
           <h2 class="card-title game-over-title">
             <span class="material-icons">emoji_events</span>Game Over
           </h2>
-          <div id="game-over-message" class="game-over-msg">
-            🎉 YOU WIN!
-          </div>
+          <div id="game-over-message" class="game-over-msg">🎉 YOU WIN!</div>
 
           <div id="game-stats" class="game-stats-grid">
             <div>
               <strong>Score:</strong> <span id="stat-score">0</span><br />
-              <strong>Successful Bounces:</strong> <span id="stat-bounces">0</span><br />
+              <strong>Successful Bounces:</strong>
+              <span id="stat-bounces">0</span><br />
               <strong>Time Survived:</strong> <span id="stat-time">0s</span>
             </div>
             <div>
@@ -336,7 +373,14 @@
 
     <footer>
       <p>&copy; 2026 Group 27. All credits to the team.</p>
-      <p><a href="https://github.com/HKUST-COMP4021/GP" target="_blank" style="color: #7be4ff; text-decoration: none;">GitHub Repository</a></p>
+      <p>
+        <a
+          href="https://github.com/HKUST-COMP4021/GP"
+          target="_blank"
+          style="color: #7be4ff; text-decoration: none"
+          >GitHub Repository</a
+        >
+      </p>
     </footer>
     <script src="scripts/avatar.js"></script>
     <script src="scripts/view.js"></script>

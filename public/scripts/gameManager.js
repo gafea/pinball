@@ -16,8 +16,12 @@
   const getFlipperSegment = (flipper) => ({
     p1: { x: flipper.x, y: flipper.y },
     p2: {
-      x: flipper.x + Math.cos(flipper.angle) * flipper.length * flipper.direction,
-      y: flipper.y + Math.sin(flipper.angle) * flipper.length * flipper.direction,
+      x:
+        flipper.x +
+        Math.cos(flipper.angle) * flipper.length * flipper.direction,
+      y:
+        flipper.y +
+        Math.sin(flipper.angle) * flipper.length * flipper.direction,
     },
   });
 
@@ -80,6 +84,7 @@
       this.previousBall = null;
       this.currentBall = null;
       this.interpolatedBall = null;
+      this.lastGameOverSoundMatchId = null;
       this.inputState = cloneInputState();
       this.keyState = cloneInputState();
       this.onInputFrame = null;
@@ -87,12 +92,15 @@
       this.rafId = null;
       this.bound = false;
       this.sequence = 0;
+      this.previousInputState = cloneInputState();
 
       this.sounds = new SoundManager();
       this.sounds.load("bumper", "sounds/3d-pinball-soundtrack/SOUND104.mp3");
       this.sounds.load("goal", "sounds/3d-pinball-soundtrack/SOUND136.mp3");
       this.sounds.load("start", "sounds/3d-pinball-soundtrack/SOUND24.mp3");
-      this.sounds.load("gameover", "sounds/3d-pinball-soundtrack/SOUND1.mp3");
+      this.sounds.load("flipflap", "sounds/flipflap.mp3");
+      this.sounds.load("win", "sounds/win.mp3");
+      this.sounds.load("lose", "sounds/lose.mp3");
 
       this.sprites = new ImageManager();
       this.sprites.load("ball", "images/ball.png");
@@ -266,6 +274,8 @@
       this.running = true;
       this.sequence = 0;
       this.lastTimestamp = 0;
+      this.previousInputState = cloneInputState();
+      this.lastGameOverSoundMatchId = null;
       this.bindInput();
       this.syncHud();
       this.draw();
@@ -283,7 +293,9 @@
       this.unbindInput();
       this.inputState = cloneInputState();
       this.keyState = cloneInputState();
+      this.previousInputState = cloneInputState();
       this.sequence = 0;
+      this.lastGameOverSoundMatchId = null;
 
       if (this.rafId) {
         cancelAnimationFrame(this.rafId);
@@ -346,7 +358,18 @@
     }
 
     setInputState(state = {}, emit = false) {
-      this.inputState = cloneInputState(state);
+      const nextState = cloneInputState(state);
+      const flapPressed =
+        (!this.previousInputState.left && nextState.left) ||
+        (!this.previousInputState.right && nextState.right) ||
+        (!this.previousInputState.both && nextState.both);
+
+      if (emit && this.running && flapPressed) {
+        this.sounds.play("flipflap");
+      }
+
+      this.previousInputState = nextState;
+      this.inputState = nextState;
       if (emit) {
         this.emitInputFrame();
       }
@@ -366,8 +389,16 @@
       // Sound detection and Teleport detection
       if (snapshot.match) {
         const oldMatch = this.runtimeState.match;
-        const scoreChanged = snapshot.match.score > oldMatch.score || snapshot.match.topScore > oldMatch.topScore;
-        
+        const scoreChanged =
+          snapshot.match.score > oldMatch.score ||
+          snapshot.match.topScore > oldMatch.topScore;
+        const matchId = options.matchId || this.matchId;
+        const gameOverChanged = snapshot.match.gameOver && !oldMatch.gameOver;
+        const shouldPlayGameOverSound =
+          snapshot.match.gameOver &&
+          (gameOverChanged ||
+            (matchId && this.lastGameOverSoundMatchId !== matchId));
+
         if (scoreChanged) {
           // Detect if it was a goal (score changed by 1) or bumper hit (score changed by 100)
           const scoreDiff = snapshot.match.score - oldMatch.score;
@@ -375,11 +406,19 @@
           if (scoreDiff === 1 || topScoreDiff === 1) {
             this.sounds.play("goal");
             // Force snap on goal to prevent gliding back to center
-            this.previousBall = null; 
+            this.previousBall = null;
           }
         }
-        if (snapshot.match.gameOver && !oldMatch.gameOver) {
-          this.sounds.play("gameover");
+        if (shouldPlayGameOverSound) {
+          const winner = options.winner || core.getWinner(snapshot.match);
+          if (winner === this.localSide) {
+            this.sounds.play("win");
+          } else if (winner === "top" || winner === "bottom") {
+            this.sounds.play("lose");
+          }
+          if (matchId) {
+            this.lastGameOverSoundMatchId = matchId;
+          }
         }
       }
 
@@ -402,7 +441,10 @@
           }
         }
 
-        this.previousBall = (currentVisualBall && this.previousBall) ? { ...currentVisualBall } : nextBall;
+        this.previousBall =
+          currentVisualBall && this.previousBall
+            ? { ...currentVisualBall }
+            : nextBall;
         this.currentBall = nextBall;
         this.interpolatedBall = { ...this.previousBall };
         this.lastSnapshotAt = performance.now();
@@ -413,7 +455,10 @@
         this.lastAck = options.ack;
       }
 
-      if (this.runtimeState.match.gameOver && typeof this.onGameOver === "function") {
+      if (
+        this.runtimeState.match.gameOver &&
+        typeof this.onGameOver === "function"
+      ) {
         this.onGameOver(this.getRuntimeState());
       }
 
@@ -437,10 +482,18 @@
       const elapsed = now - this.lastSnapshotAt;
       const alpha = Math.max(0, Math.min(1, elapsed / 50));
       this.interpolatedBall = {
-        x: this.previousBall.x + (this.currentBall.x - this.previousBall.x) * alpha,
-        y: this.previousBall.y + (this.currentBall.y - this.previousBall.y) * alpha,
-        vx: this.previousBall.vx + (this.currentBall.vx - this.previousBall.vx) * alpha,
-        vy: this.previousBall.vy + (this.currentBall.vy - this.previousBall.vy) * alpha,
+        x:
+          this.previousBall.x +
+          (this.currentBall.x - this.previousBall.x) * alpha,
+        y:
+          this.previousBall.y +
+          (this.currentBall.y - this.previousBall.y) * alpha,
+        vx:
+          this.previousBall.vx +
+          (this.currentBall.vx - this.previousBall.vx) * alpha,
+        vy:
+          this.previousBall.vy +
+          (this.currentBall.vy - this.previousBall.vy) * alpha,
         r: this.currentBall.r,
       };
     }
@@ -459,9 +512,7 @@
         matchId: this.matchId,
         localSide: this.localSide,
         ack: this.lastAck,
-        ball: ball
-          ? { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy }
-          : null,
+        ball: ball ? { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy } : null,
         flippers: flippers
           ? {
               leftAngle: flippers.bottomLeft.angle,
@@ -486,14 +537,15 @@
         this.hud.scoreLabel.textContent = "Bottom Points";
       if (this.hud.topScoreLabel)
         this.hud.topScoreLabel.textContent = "Top Points";
-      if (this.hud.livesLabel)
-        this.hud.livesLabel.textContent = "Bottom Lives";
+      if (this.hud.livesLabel) this.hud.livesLabel.textContent = "Bottom Lives";
       if (this.hud.topLivesLabel)
         this.hud.topLivesLabel.textContent = "Top Lives";
       if (this.hud.score) this.hud.score.textContent = String(match.score);
       if (this.hud.lives) this.hud.lives.textContent = String(match.lives);
-      if (this.hud.topScore) this.hud.topScore.textContent = String(match.topScore);
-      if (this.hud.topLives) this.hud.topLives.textContent = String(match.topLives);
+      if (this.hud.topScore)
+        this.hud.topScore.textContent = String(match.topScore);
+      if (this.hud.topLives)
+        this.hud.topLives.textContent = String(match.topLives);
       if (this.hud.status) this.hud.status.textContent = match.status;
     }
 
@@ -502,7 +554,9 @@
       this.lastTimestamp = timestamp;
       this.updateInterpolatedBall();
       this.draw();
-      this.rafId = requestAnimationFrame((nextTimestamp) => this.loop(nextTimestamp));
+      this.rafId = requestAnimationFrame((nextTimestamp) =>
+        this.loop(nextTimestamp),
+      );
     }
 
     drawBackground(ctx) {
@@ -534,7 +588,11 @@
       ctx.font = "600 14px Roboto, sans-serif";
       ctx.fillText("TOP GOAL", core.TOP_GOAL_MIN_X + 14, 46);
       ctx.fillStyle = "#ffb8c9";
-      ctx.fillText("BOTTOM GOAL", core.BOTTOM_GOAL_MIN_X - 8, CANVAS_HEIGHT - 30);
+      ctx.fillText(
+        "BOTTOM GOAL",
+        core.BOTTOM_GOAL_MIN_X - 8,
+        CANVAS_HEIGHT - 30,
+      );
     }
 
     drawSideLabels(ctx) {
@@ -580,14 +638,20 @@
         ctx.save();
         if (sprite && this.sprites.isReady()) {
           ctx.translate(bumper.x, bumper.y);
-          
+
           // Counteract global rotation so "BUMP" is always upright for the viewer
           if (this.isTopPerspective()) {
             ctx.rotate(Math.PI);
           }
-          
+
           if (active) ctx.scale(1.15, 1.15);
-          ctx.drawImage(sprite, -bumper.r * 1.5, -bumper.r * 1.5, bumper.r * 3, bumper.r * 3);
+          ctx.drawImage(
+            sprite,
+            -bumper.r * 1.5,
+            -bumper.r * 1.5,
+            bumper.r * 3,
+            bumper.r * 3,
+          );
         } else {
           ctx.beginPath();
           ctx.arc(bumper.x, bumper.y, bumper.r, 0, Math.PI * 2);
@@ -607,7 +671,7 @@
         ctx.save();
         const isSpeed = zone.kind === "speed";
         const label = isSpeed ? "SPEED UP" : "SLOWDOWN";
-        
+
         // Use semi-transparent primitives for better visibility/boundary checking
         ctx.fillStyle = isSpeed
           ? "rgba(255, 213, 79, 0.25)"
@@ -616,7 +680,7 @@
           ? "rgba(255, 213, 79, 0.8)"
           : "rgba(64, 140, 255, 0.8)";
         ctx.lineWidth = 2;
-        
+
         ctx.beginPath();
         ctx.roundRect(zone.x, zone.y, zone.w, zone.h, 8);
         ctx.fill();
@@ -624,7 +688,7 @@
 
         const centerX = zone.x + zone.w / 2;
         const centerY = zone.y + zone.h / 2;
-        
+
         ctx.fillStyle = isSpeed ? "#ffd54f" : "#408cff";
         ctx.font = "bold 10px Roboto, sans-serif";
         ctx.textAlign = "center";
@@ -645,11 +709,11 @@
       if (sprite && this.sprites.isReady()) {
         ctx.translate(flipper.x, flipper.y);
         ctx.rotate(flipper.angle);
-        
+
         const h = 30; // sprite draw height
         const w = flipper.length + 22; // sprite draw width (including base)
         const pivotOffset = 11; // center of the circular base in the sprite
-        
+
         if (flipper.direction === 1) {
           // Left flipper: pivot is at the left end
           ctx.drawImage(sprite, -pivotOffset, -h / 2, w, h);
@@ -674,26 +738,32 @@
       const ball = this.getRenderedBall();
       if (!ball) return;
       const sprite = this.sprites.get("ball");
+      const drawX = this.isTopPerspective() ? CANVAS_WIDTH - ball.x : ball.x;
+      const drawY = this.isTopPerspective() ? CANVAS_HEIGHT - ball.y : ball.y;
 
       ctx.save();
+      // Reset transforms so the ball sprite stays upright on screen.
+      if (typeof ctx.resetTransform === "function") {
+        ctx.resetTransform();
+      } else {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
       if (sprite && this.sprites.isReady()) {
-        ctx.translate(ball.x, ball.y);
-        // Spin effect based on velocity
-        ctx.rotate(ball.x * 0.05);
+        ctx.translate(drawX, drawY);
         ctx.drawImage(sprite, -ball.r, -ball.r, ball.r * 2, ball.r * 2);
       } else {
         const gradient = ctx.createRadialGradient(
-          ball.x - 3,
-          ball.y - 4,
+          drawX - 3,
+          drawY - 4,
           2,
-          ball.x,
-          ball.y,
+          drawX,
+          drawY,
           ball.r,
         );
         gradient.addColorStop(0, "#ffffff");
         gradient.addColorStop(1, "#bcc7ff");
         ctx.beginPath();
-        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, ball.r, 0, Math.PI * 2);
         ctx.fillStyle = gradient;
         ctx.fill();
       }
@@ -711,11 +781,7 @@
       ctx.font = "600 24px Roboto, sans-serif";
       ctx.fillText(this.runtimeState.match.status, CANVAS_WIDTH / 2, 342);
       ctx.font = "14px Roboto, sans-serif";
-      ctx.fillText(
-        "Waiting for the next rally.",
-        CANVAS_WIDTH / 2,
-        366,
-      );
+      ctx.fillText("Waiting for the next rally.", CANVAS_WIDTH / 2, 366);
       ctx.restore();
     }
 
@@ -735,7 +801,11 @@
       this.drawAreaEffects(ctx);
       this.drawBumpers(ctx);
       this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomLeft, "p1l");
-      this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomRight, "p1r");
+      this.drawFlipper(
+        ctx,
+        this.runtimeState.scene.flippers.bottomRight,
+        "p1r",
+      );
       this.drawFlipper(ctx, this.runtimeState.scene.flippers.topLeft, "p2l");
       this.drawFlipper(ctx, this.runtimeState.scene.flippers.topRight, "p2r");
       this.drawBall(ctx);

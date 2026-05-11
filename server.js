@@ -33,7 +33,14 @@ class Database {
     const users = this.getUsers();
     if (username in users) throw new Error("Username has already been used.");
     const hash = await argon2.hash(password);
-    users[username] = { avatar, name, password: hash, wins: 0, matches: 0, xp: 0 };
+    users[username] = {
+      avatar,
+      name,
+      password: hash,
+      wins: 0,
+      matches: 0,
+      xp: 0,
+    };
     this.saveUsers(users);
   }
 
@@ -42,7 +49,11 @@ class Database {
     if (!(username in users)) throw new Error("Incorrect username/password.");
     const valid = await argon2.verify(users[username].password, password);
     if (!valid) throw new Error("Incorrect username/password.");
-    return { username, avatar: users[username].avatar, name: users[username].name };
+    return {
+      username,
+      avatar: users[username].avatar,
+      name: users[username].name,
+    };
   }
 
   static updateStats(username, won = false) {
@@ -54,7 +65,10 @@ class Database {
         users[username].xp = (users[username].xp || 0) + 50;
       }
       // Self-healing
-      users[username].matches = Math.max(users[username].matches, users[username].wins || 0);
+      users[username].matches = Math.max(
+        users[username].matches,
+        users[username].wins || 0,
+      );
       this.saveUsers(users);
     }
   }
@@ -75,8 +89,10 @@ function containWordCharsOnly(text) {
 
 app.post("/register", async (req, res) => {
   const { username, avatar, name, password } = req.body;
-  if (!username || !avatar || !name || !password) return res.json({ error: "Missing fields." });
-  if (!containWordCharsOnly(username)) return res.json({ error: "Invalid characters." });
+  if (!username || !avatar || !name || !password)
+    return res.json({ error: "Missing fields." });
+  if (!containWordCharsOnly(username))
+    return res.json({ error: "Invalid characters." });
   try {
     await Database.register(username, name, avatar, password);
     res.json({ success: true });
@@ -97,7 +113,9 @@ app.post("/signin", async (req, res) => {
 });
 
 app.get("/validate", (req, res) => {
-  res.json(req.session.user ? { user: req.session.user } : { error: "Not logged in." });
+  res.json(
+    req.session.user ? { user: req.session.user } : { error: "Not logged in." },
+  );
 });
 
 app.get("/signout", (req, res) => {
@@ -107,10 +125,19 @@ app.get("/signout", (req, res) => {
 
 app.get("/leaderboard", (req, res) => {
   const users = Database.getUsers();
-  const lb = Object.entries(users).map(([username, u]) => ({
-    username, name: u.name, avatar: u.avatar, wins: u.wins || 0,
-    winRate: (u.matches || 0) > 0 ? ((u.wins || 0) / u.matches * 100).toFixed(1) : "0.0"
-  })).sort((a, b) => b.wins - a.wins).slice(0, 5);
+  const lb = Object.entries(users)
+    .map(([username, u]) => ({
+      username,
+      name: u.name,
+      avatar: u.avatar,
+      wins: u.wins || 0,
+      winRate:
+        (u.matches || 0) > 0
+          ? (((u.wins || 0) / u.matches) * 100).toFixed(1)
+          : "0.0",
+    }))
+    .sort((a, b) => b.wins - a.wins)
+    .slice(0, 5);
   res.json(lb);
 });
 
@@ -185,7 +212,8 @@ function endAuthoritativeMatch(roomCode, reason, winner) {
   match.runtime.match.gameOver = true;
   if (!match.runtime.match.status.startsWith("Game Over")) {
     if (winner === "draw") match.runtime.match.status = "Game Over - Draw";
-    else if (winner === "top") match.runtime.match.status = "Game Over - Top Wins";
+    else if (winner === "top")
+      match.runtime.match.status = "Game Over - Top Wins";
     else match.runtime.match.status = "Game Over - Bottom Wins";
   }
 
@@ -196,7 +224,8 @@ function endAuthoritativeMatch(roomCode, reason, winner) {
   for (const sid of Object.keys(room?.players || {})) {
     const username = room.players[sid].username;
     if (username) {
-      const isWinner = winner !== "draw" && match.socketIdBySide[winner] === sid;
+      const isWinner =
+        winner !== "draw" && match.socketIdBySide[winner] === sid;
       Database.updateStats(username, isWinner);
     }
   }
@@ -217,8 +246,8 @@ function endAuthoritativeMatch(roomCode, reason, winner) {
       gameOver: true,
       stats: {
         bounces: match.bounces || 0,
-        duration: elapsedSeconds
-      }
+        duration: elapsedSeconds,
+      },
     },
   });
 
@@ -270,9 +299,11 @@ function startAuthoritativeMatch(roomCode) {
     const bottomSocketId = match.socketIdBySide.bottom;
     const topSocketId = match.socketIdBySide.top;
 
-    const bottomInput = match.latestInputBySocketId[bottomSocketId]?.input || {};
+    const bottomInput =
+      match.latestInputBySocketId[bottomSocketId]?.input || {};
     const topInput = match.latestInputBySocketId[topSocketId]?.input || {};
-    const bottomCheatPos = match.latestInputBySocketId[bottomSocketId]?.cheatPos;
+    const bottomCheatPos =
+      match.latestInputBySocketId[bottomSocketId]?.cheatPos;
     const topCheatPos = match.latestInputBySocketId[topSocketId]?.cheatPos;
 
     // Shared Cheat Mode
@@ -303,8 +334,8 @@ function startAuthoritativeMatch(roomCode) {
     });
 
     const events = GameplayCore.stepRuntime(runtime, inputFrame);
-    if (events.some(e => e.type === "BUMPER_HIT")) {
-      match.bounces += events.filter(e => e.type === "BUMPER_HIT").length;
+    if (events.some((e) => e.type === "BUMPER_HIT")) {
+      match.bounces += events.filter((e) => e.type === "BUMPER_HIT").length;
     }
 
     if (runtime.match.gameOver) {
@@ -332,11 +363,11 @@ io.on("connection", (socket) => {
       const p1 = queue.shift();
       const p2 = queue.shift();
       const code = makeRoomCode();
-      
+
       // Safety: Ensure both sockets are still connected and not already in a match
       const s1 = io.sockets.sockets.get(p1.socketId);
       const s2 = io.sockets.sockets.get(p2.socketId);
-      
+
       if (!s1 || !s2) {
         if (s1) queue.unshift(p1);
         if (s2) queue.unshift(p2);
@@ -416,12 +447,12 @@ io.on("connection", (socket) => {
     const room = rooms[code];
     if (!room) return;
     if (activeMatches[code]) stopAuthoritativeMatch(code);
-    
+
     // Reset players ready status
     for (const sid of Object.keys(room.players)) {
       room.players[sid].ready = true;
     }
-    
+
     io.to(code).emit("room_update", room);
     io.to(code).emit("game_start");
     startAuthoritativeMatch(code);

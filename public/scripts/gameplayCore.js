@@ -96,7 +96,8 @@
       attempts += 1;
     } while (
       attempts < 100 &&
-      Math.hypot(topLeft.x - topRight.x, topLeft.y - topRight.y) < minPairDistance
+      Math.hypot(topLeft.x - topRight.x, topLeft.y - topRight.y) <
+        minPairDistance
     );
 
     const bottomRight = mirrorPoint180(topLeft);
@@ -111,7 +112,8 @@
   };
 
   const createSymmetricAreaEffectsLayout = (random = Math.random) => {
-    const maxTopZoneY = MIDFIELD_Y - AREA_EFFECT_HEIGHT - AREA_EFFECT_MIDFIELD_MARGIN;
+    const maxTopZoneY =
+      MIDFIELD_Y - AREA_EFFECT_HEIGHT - AREA_EFFECT_MIDFIELD_MARGIN;
 
     const topLeftZone = {
       minX: 52,
@@ -150,21 +152,12 @@
       kind: "speed",
     };
 
-    return [
-      topLeftSpeed,
-      topRightSlow,
-      bottomLeftSlow,
-      bottomRightSpeed,
-    ];
+    return [topLeftSpeed, topRightSlow, bottomLeftSlow, bottomRightSpeed];
   };
 
   const getGravityScale = (ballY) => {
     const distanceFromMidfield = ballY - MIDFIELD_Y;
-    return clamp(
-      distanceFromMidfield / GRAVITY_BLEND_HALF_BAND,
-      -1,
-      1,
-    );
+    return clamp(distanceFromMidfield / GRAVITY_BLEND_HALF_BAND, -1, 1);
   };
 
   const nearestPointOnSegment = (point, p1, p2) => {
@@ -237,6 +230,12 @@
       normal,
       Math.max(ball.restitution, bumper.restitution),
     );
+
+    // Small velocity boost on bouncy bumper hit to make collisions feel snappier
+    // Use bumper.boost if provided, otherwise apply a modest default
+    const bumperBoost = bumper.boost ?? 1.5;
+    ball.vx += normal.x * bumperBoost;
+    ball.vy += normal.y * bumperBoost;
 
     const now = Date.now();
     if (now - bumper.lastHitAt > 80) {
@@ -319,15 +318,15 @@
     const bumpers = (options.bumpers || createSymmetricBumperLayout()).map(
       (bumper) => makeBumper(bumper.x, bumper.y, bumper),
     );
-    const areaEffects = (options.areaEffects || createSymmetricAreaEffectsLayout()).map(
-      (zone) => ({
-        x: zone.x,
-        y: zone.y,
-        w: zone.w,
-        h: zone.h,
-        kind: zone.kind,
-      }),
-    );
+    const areaEffects = (
+      options.areaEffects || createSymmetricAreaEffectsLayout()
+    ).map((zone) => ({
+      x: zone.x,
+      y: zone.y,
+      w: zone.w,
+      h: zone.h,
+      kind: zone.kind,
+    }));
 
     const walls = [
       makeSegment({ x: 20, y: 20 }, { x: 20, y: 680 }),
@@ -444,11 +443,7 @@
 
   const buildInputFrame = (
     runtimeState,
-    {
-      bottomInput = {},
-      topInput = {},
-      topControlMode = "manual",
-    } = {},
+    { bottomInput = {}, topInput = {}, topControlMode = "manual" } = {},
   ) => ({
     ...buildManualInputFrame(bottomInput),
     ...(topControlMode === "auto"
@@ -499,8 +494,10 @@
   const applyAreaEffects = (runtimeState) => {
     const { ball, areaEffects } = runtimeState.scene;
     for (const zone of areaEffects) {
-      const overlapsX = ball.x + ball.r >= zone.x && ball.x - ball.r <= zone.x + zone.w;
-      const overlapsY = ball.y + ball.r >= zone.y && ball.y - ball.r <= zone.y + zone.h;
+      const overlapsX =
+        ball.x + ball.r >= zone.x && ball.x - ball.r <= zone.x + zone.w;
+      const overlapsY =
+        ball.y + ball.r >= zone.y && ball.y - ball.r <= zone.y + zone.h;
       if (!overlapsX || !overlapsY) continue;
 
       const multiplier = AREA_EFFECT_MULTIPLIER[zone.kind];
@@ -578,7 +575,7 @@
 
     for (const bumper of bumpers) {
       resolveBumperCollision(ball, bumper, () => {
-        events.push({ type: "BUMPER_HIT", points: 100 });
+        events.push({ type: "BUMPER_HIT", points: 10 });
       });
     }
 
@@ -629,10 +626,10 @@
       if (event.type !== "GOAL") continue;
 
       if (event.side === "top") {
-        match.score += 1;
+        match.score += 100;
         match.topLives = Math.max(0, match.topLives - 1);
       } else {
-        match.topScore += 1;
+        match.topScore += 100;
         match.lives = Math.max(0, match.lives - 1);
       }
 
@@ -752,13 +749,15 @@
     }
 
     if (snapshot.scene?.areaEffects) {
-      runtimeState.scene.areaEffects = snapshot.scene.areaEffects.map((zone) => ({
-        x: zone.x,
-        y: zone.y,
-        w: zone.w,
-        h: zone.h,
-        kind: zone.kind,
-      }));
+      runtimeState.scene.areaEffects = snapshot.scene.areaEffects.map(
+        (zone) => ({
+          x: zone.x,
+          y: zone.y,
+          w: zone.w,
+          h: zone.h,
+          kind: zone.kind,
+        }),
+      );
     }
 
     return runtimeState;
