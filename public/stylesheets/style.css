@@ -86,7 +86,7 @@ h1 {
 }
 
 form {
-  align-items: stretch !important;
+  align-items: stretch;
 }
 
 input,
@@ -153,4 +153,57 @@ section {
   100% {
     transform: rotate(360deg);
   }
+}
+
+.gameplay-shell {
+  max-width: 920px;
+  margin: 24px auto;
+}
+
+.gameplay-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gameplay-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.gameplay-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #111;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+#gameplay-canvas {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  aspect-ratio: 4 / 7;
+  border: 2px solid #2d2d2d;
+  border-radius: 4px;
+  background: #000;
+}
+
+.gameplay-help {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.gameplay-help kbd {
+  padding: 0 6px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #f8f8f8;
 }

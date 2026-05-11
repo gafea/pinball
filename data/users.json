@@ -1,4 +1,20 @@
 {
+  "123": {
+    "avatar": "Rabbit Face",
+    "name": "123",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$aPEDC9IgsEcbHBKX0wxwBw$FPT4O6EUteuFtZI58K2cSnVjlOJaH5l+cXqW09IuHco",
+    "wins": 8,
+    "matches": 16,
+    "xp": 300
+  },
+  "456": {
+    "avatar": "Hamster",
+    "name": "456",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$HqsMSMJODqTKRSz37hyy1A$AMLTbwQNyMPDdOzlHEhMorfyyWaYz4YhcSl7yYYVDtc",
+    "wins": 14,
+    "matches": 18,
+    "xp": 400
+  },
   "tony": {
     "avatar": "Owl",
     "name": "Tony Lee",
@@ -37,11 +53,38 @@
   "me": {
     "avatar": "Hamster",
     "name": "me",
-    "password": "$argon2id$v=19$m=65536,t=3,p=4$NO2XZb+S3xTA1MuoD8gaWA$2GOuFErVJcf6Vyp8/bZDzZjU/UaCKpRh2xVvmLX+XaI"
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$NO2XZb+S3xTA1MuoD8gaWA$2GOuFErVJcf6Vyp8/bZDzZjU/UaCKpRh2xVvmLX+XaI",
+    "matches": 8,
+    "wins": 3,
+    "xp": 150
   },
   "you": {
     "avatar": "Rabbit Face",
     "name": "you",
-    "password": "$argon2id$v=19$m=65536,t=3,p=4$IxhGd8LZzddx50Gulc5Xmg$4GnvSGTZFxwAlXbpGoW5xPdbkRNyHtXI323uHT5lq/c"
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$IxhGd8LZzddx50Gulc5Xmg$4GnvSGTZFxwAlXbpGoW5xPdbkRNyHtXI323uHT5lq/c",
+    "matches": 8,
+    "wins": 5,
+    "xp": 250
+  },
+  "syncqa20260511": {
+    "avatar": "Hamster",
+    "name": "Sync QA",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$IuMoTHliU86CJRkQtJyWEg$gUsx7GmRUTsWLdOuEHXpcyUTefYTEZyjHWsPJSn1y3I"
+  },
+  "a": {
+    "avatar": "Anon",
+    "name": "a",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$tMOK6SICzVusqkpKAuIrNQ$Z4FHeg5UUx8GxaChTs6bHBQAcW9aIpRe3m3/4U0rhRw",
+    "wins": 1,
+    "matches": 2,
+    "xp": 50
+  },
+  "b": {
+    "avatar": "Hamster",
+    "name": "b",
+    "password": "$argon2id$v=19$m=65536,t=3,p=4$swdqPqFuEfLKRlSduUWIUg$cjcgdcRoMuMyXj5pxrs45xdYZ850UHuwUwg8gYWYJBI",
+    "wins": 1,
+    "matches": 2,
+    "xp": 50
   }
 }

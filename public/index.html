@@ -26,6 +26,52 @@
 
     <link rel="stylesheet" href="/stylesheets/style.css" />
     <link rel="stylesheet" href="/stylesheets/toast.css" />
+    <style>
+      .game-over-card {
+        text-align: center;
+      }
+      .game-over-title {
+        justify-content: center;
+      }
+      .game-over-msg {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 16px 0;
+      }
+      .game-stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 24px 0;
+        text-align: left;
+        padding: 0 16px;
+      }
+      .leaderboard-container {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 440px;
+        margin: 0 auto;
+      }
+      .btn-row {
+        margin-top: 32px;
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+      }
+      .reason-text {
+        color: rgba(255, 255, 255, 0.6);
+        margin-top: 8px;
+      }
+      footer {
+        margin-top: 48px;
+        padding: 24px;
+        text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.9rem;
+      }
+    </style>
   </head>
   <body>
     <main>
@@ -35,7 +81,12 @@
           <span>Quantum Entanglement</span>
         </div>
         <div class="header-actions" style="margin-left: auto">
-          <button id="btn-signout" style="display: none" class="primary">
+          <button
+            type="button"
+            id="btn-signout"
+            style="display: none"
+            class="primary"
+          >
             Sign out
           </button>
         </div>
@@ -58,7 +109,8 @@
                 style="font-size: 18px; vertical-align: middle"
                 >keyboard</span
               >
-              <strong>Left Flipper:</strong> Press <kbd>A</kbd> or <kbd>←</kbd>
+              <strong>Left Flipper:</strong> Press <kbd>Z</kbd> (or
+              <kbd>A</kbd>)
             </li>
             <li>
               <span
@@ -66,7 +118,17 @@
                 style="font-size: 18px; vertical-align: middle"
                 >keyboard</span
               >
-              <strong>Right Flipper:</strong> Press <kbd>D</kbd> or <kbd>→</kbd>
+              <strong>Right Flipper:</strong> Press <kbd>M</kbd> (or
+              <kbd>D</kbd>)
+            </li>
+            <li>
+              <span
+                class="material-icons"
+                style="font-size: 18px; vertical-align: middle"
+                >auto_fix_high</span
+              >
+              <strong>Cheat Mode:</strong> Hold <kbd>G</kbd> & Ball follows
+              Mouse
             </li>
             <li>
               <span
@@ -93,7 +155,9 @@
                 type="password"
                 placeholder="password"
               />
-              <button id="btn-signin" class="primary">Sign in</button>
+              <button type="button" id="btn-signin" class="primary">
+                Sign in
+              </button>
             </form>
 
             <p>New player? <a href="#" id="btn-show-register">Register</a></p>
@@ -111,7 +175,9 @@
                 <option class="placeholder" value="">Select your avatar</option>
               </select>
               <input id="reg-password" type="password" placeholder="password" />
-              <button id="btn-register" class="primary">Register</button>
+              <button type="button" id="btn-register" class="primary">
+                Register
+              </button>
             </form>
 
             <p>
@@ -136,13 +202,15 @@
             <div id="idle-view" class="tertiary-view">
               <p>Ready to compete in real-time?</p>
               <button
+                type="button"
                 class="primary"
                 id="btn-find-match"
                 style="margin-bottom: 8px"
               >
-                <span class="material-icons">play_arrow</span> FIND A MATCH
+                <span class="material-icons">play_arrow</span> PUBLIC ROOM MATCH
               </button>
               <button
+                type="button"
                 class="primary"
                 id="btn-create-private-match"
                 style="margin-bottom: 8px"
@@ -155,6 +223,7 @@
                 style="margin-top: 8px"
               />
               <button
+                type="button"
                 class="primary"
                 id="btn-join-private-match"
                 style="margin-bottom: 8px"
@@ -189,6 +258,7 @@
               </div>
 
               <button
+                type="button"
                 class="secondary"
                 id="btn-leave-queue"
                 style="color: var(--error-color)"
@@ -201,28 +271,118 @@
       </div>
 
       <div id="game-play-view" class="primary-view" style="display: none">
-        <h2 class="card-title">
-          <span class="material-icons">sports_esports</span>Game Room
-        </h2>
-        <p>
-          This is the gameplay page. Game implementation will be added later.
-        </p>
-        <button id="btn-forfeit">Forfeit & Leave</button>
+        <section class="card gameplay-shell">
+          <div class="gameplay-header-row">
+            <h2 class="card-title" style="margin: 0">
+              <span class="material-icons">sports_esports</span>Game Room
+            </h2>
+            <button
+              type="button"
+              id="btn-forfeit"
+              class="secondary gameplay-forfeit-button"
+            >
+              Forfeit & Leave
+            </button>
+          </div>
+
+          <div class="gameplay-hud">
+            <span>Room: <strong id="game-room-code">-</strong></span>
+            <span
+              ><span id="game-score-label">Bottom Points</span>:
+              <strong id="game-score">0</strong></span
+            >
+            <span
+              ><span id="game-top-score-label">Top Points</span>:
+              <strong id="game-top-score">0</strong></span
+            >
+            <span
+              ><span id="game-lives-label">Bottom Lives</span>:
+              <strong id="game-lives">3</strong></span
+            >
+            <span
+              ><span id="game-top-lives-label">Top Lives</span>:
+              <strong id="game-top-lives">3</strong></span
+            >
+            <span>Status: <strong id="game-status">Waiting</strong></span>
+          </div>
+
+          <div class="gameplay-canvas-wrap">
+            <canvas
+              id="gameplay-canvas"
+              width="400"
+              height="700"
+              aria-label="Pinball gameplay canvas"
+            ></canvas>
+          </div>
+
+          <p class="gameplay-help">
+            Versus board: defend the bottom side with <kbd>Z</kbd>/<kbd>M</kbd>
+            and send the ball into the top drain.
+          </p>
+        </section>
       </div>
 
-      <div id="game-over-view" class="primary-view" style="display: none">
-        <h2 class="card-title">
-          <span class="material-icons">emoji_events</span>Game Over
-        </h2>
-        <p id="game-over-message">Player X wins!</p>
-        <button id="btn-back-home">Back to Home</button>
+      <div
+        id="game-over-view"
+        class="primary-view container"
+        style="display: none"
+      >
+        <section class="card game-over-card">
+          <h2 class="card-title game-over-title">
+            <span class="material-icons">emoji_events</span>Game Over
+          </h2>
+          <div id="game-over-message" class="game-over-msg">🎉 YOU WIN!</div>
+
+          <div id="game-stats" class="game-stats-grid">
+            <div>
+              <strong>Score:</strong> <span id="stat-score">0</span><br />
+              <strong>Successful Bounces:</strong>
+              <span id="stat-bounces">0</span><br />
+              <strong>Time Survived:</strong> <span id="stat-time">0s</span>
+            </div>
+            <div>
+              <strong>Win Count:</strong> <span id="stat-wins">0</span><br />
+              <strong>Win Rate:</strong> <span id="stat-winrate">0%</span><br />
+              <strong>Latest XP:</strong> <span id="stat-xp">0</span>
+            </div>
+          </div>
+
+          <div id="leaderboard-section" style="margin-top: 32px">
+            <h3 style="margin-bottom: 16px">Top Players (Overall Ranking)</h3>
+            <div id="leaderboard-list" class="leaderboard-container">
+              <!-- Leaderboard items will be injected here -->
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button type="button" id="btn-rematch" class="primary">
+              <span class="material-icons">refresh</span> Rematch
+            </button>
+            <button type="button" id="btn-back-home" class="secondary">
+              <span class="material-icons">home</span> Back to Home
+            </button>
+          </div>
+        </section>
       </div>
 
       <div class="toast-container" id="toast-container"></div>
     </main>
+
+    <footer>
+      <p>
+        <a
+          href="https://github.com/gafea/pinball"
+          target="_blank"
+          style="color: #7be4ff; text-decoration: none"
+          >Group 27 GitHub Repository</a
+        >
+      </p>
+    </footer>
     <script src="scripts/avatar.js"></script>
     <script src="scripts/view.js"></script>
     <script src="scripts/toast.js"></script>
+    <script src="scripts/gameplayCore.js"></script>
+    <script src="scripts/gameManager.js" defer></script>
     <script src="scripts/app.js" defer></script>
   </body>
 </html>
