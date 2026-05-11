@@ -40,6 +40,30 @@
     }
   }
 
+  class ImageManager {
+    constructor() {
+      this.images = {};
+      this.loaded = 0;
+      this.total = 0;
+    }
+
+    load(name, url) {
+      this.total++;
+      const img = new Image();
+      img.src = url;
+      img.onload = () => this.loaded++;
+      this.images[name] = img;
+    }
+
+    get(name) {
+      return this.images[name];
+    }
+
+    isReady() {
+      return this.total > 0 && this.loaded === this.total;
+    }
+  }
+
   class GameplayRuntime {
     constructor() {
       this.canvas = null;
@@ -69,6 +93,16 @@
       this.sounds.load("goal", "sounds/3d-pinball-soundtrack/SOUND136.mp3");
       this.sounds.load("start", "sounds/3d-pinball-soundtrack/SOUND24.mp3");
       this.sounds.load("gameover", "sounds/3d-pinball-soundtrack/SOUND1.mp3");
+
+      this.sprites = new ImageManager();
+      this.sprites.load("ball", "images/ball.png");
+      this.sprites.load("bumper", "images/bouncyobstacles.png");
+      this.sprites.load("p1l", "images/p1l.png");
+      this.sprites.load("p1r", "images/p1r.png");
+      this.sprites.load("p2l", "images/p2l.png");
+      this.sprites.load("p2r", "images/p2r.png");
+      this.sprites.load("speed", "images/speedup.png");
+      this.sprites.load("slow", "images/slowdown.png");
 
       this.mousePos = { x: 0, y: 0 };
       this.isDragging = false;
@@ -329,18 +363,19 @@
         : null;
       const currentVisualBall = this.getRenderedBall();
 
-      // Sound detection
+      // Sound detection and Teleport detection
       if (snapshot.match) {
         const oldMatch = this.runtimeState.match;
-        if (
-          snapshot.match.score > oldMatch.score ||
-          snapshot.match.topScore > oldMatch.topScore
-        ) {
+        const scoreChanged = snapshot.match.score > oldMatch.score || snapshot.match.topScore > oldMatch.topScore;
+        
+        if (scoreChanged) {
           // Detect if it was a goal (score changed by 1) or bumper hit (score changed by 100)
           const scoreDiff = snapshot.match.score - oldMatch.score;
           const topScoreDiff = snapshot.match.topScore - oldMatch.topScore;
           if (scoreDiff === 1 || topScoreDiff === 1) {
             this.sounds.play("goal");
+            // Force snap on goal to prevent gliding back to center
+            this.previousBall = null; 
           }
         }
         if (snapshot.match.gameOver && !oldMatch.gameOver) {
@@ -358,7 +393,16 @@
       }
 
       if (nextBall) {
-        this.previousBall = currentVisualBall ? { ...currentVisualBall } : nextBall;
+        // Also detect manual teleports or large jumps (e.g. cheat mode or resetBall)
+        if (this.currentBall) {
+          const dx = nextBall.x - this.currentBall.x;
+          const dy = nextBall.y - this.currentBall.y;
+          if (Math.hypot(dx, dy) > 100) {
+            this.previousBall = null; // Reset interpolation history to force snap
+          }
+        }
+
+        this.previousBall = (currentVisualBall && this.previousBall) ? { ...currentVisualBall } : nextBall;
         this.currentBall = nextBall;
         this.interpolatedBall = { ...this.previousBall };
         this.lastSnapshotAt = performance.now();
@@ -530,16 +574,29 @@
     }
 
     drawBumpers(ctx) {
+      const sprite = this.sprites.get("bumper");
       for (const bumper of this.runtimeState.scene.bumpers) {
         const active = Date.now() < bumper.activeUntil;
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(bumper.x, bumper.y, bumper.r, 0, Math.PI * 2);
-        ctx.fillStyle = active ? "#ff88aa" : "#ff0055";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.45)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        if (sprite && this.sprites.isReady()) {
+          ctx.translate(bumper.x, bumper.y);
+          
+          // Counteract global rotation so "BUMP" is always upright for the viewer
+          if (this.isTopPerspective()) {
+            ctx.rotate(Math.PI);
+          }
+          
+          if (active) ctx.scale(1.15, 1.15);
+          ctx.drawImage(sprite, -bumper.r * 1.5, -bumper.r * 1.5, bumper.r * 3, bumper.r * 3);
+        } else {
+          ctx.beginPath();
+          ctx.arc(bumper.x, bumper.y, bumper.r, 0, Math.PI * 2);
+          ctx.fillStyle = active ? "#ff88aa" : "#ff0055";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,0.45)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
         ctx.restore();
       }
     }
@@ -550,70 +607,96 @@
         ctx.save();
         const isSpeed = zone.kind === "speed";
         const label = isSpeed ? "SPEED UP" : "SLOWDOWN";
+        
+        // Use semi-transparent primitives for better visibility/boundary checking
         ctx.fillStyle = isSpeed
-          ? "rgba(255, 213, 79, 0.18)"
-          : "rgba(64, 140, 255, 0.18)";
+          ? "rgba(255, 213, 79, 0.25)"
+          : "rgba(64, 140, 255, 0.25)";
         ctx.strokeStyle = isSpeed
-          ? "rgba(255, 213, 79, 0.85)"
-          : "rgba(64, 140, 255, 0.85)";
-        ctx.lineWidth = 3;
+          ? "rgba(255, 213, 79, 0.8)"
+          : "rgba(64, 140, 255, 0.8)";
+        ctx.lineWidth = 2;
+        
         ctx.beginPath();
-        ctx.roundRect(zone.x, zone.y, zone.w, zone.h, 12);
+        ctx.roundRect(zone.x, zone.y, zone.w, zone.h, 8);
         ctx.fill();
         ctx.stroke();
 
         const centerX = zone.x + zone.w / 2;
         const centerY = zone.y + zone.h / 2;
-        const lines = label.split(" ");
-        const lineHeight = 14;
-
-        ctx.fillStyle = ctx.strokeStyle;
-        ctx.font = "600 11px Roboto, sans-serif";
+        
+        ctx.fillStyle = isSpeed ? "#ffd54f" : "#408cff";
+        ctx.font = "bold 10px Roboto, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.translate(centerX, centerY);
         if (this.isTopPerspective()) {
           ctx.rotate(Math.PI);
         }
-        lines.forEach((line, index) => {
-          const y = (index - (lines.length - 1) / 2) * lineHeight + 1;
-          ctx.fillText(line, 0, y);
-        });
+        ctx.fillText(label, 0, 0);
         ctx.restore();
       }
     }
 
-    drawFlipper(ctx, flipper) {
-      const segment = getFlipperSegment(flipper);
+    drawFlipper(ctx, flipper, spriteKey) {
       ctx.save();
-      ctx.lineCap = "round";
-      ctx.lineWidth = 9;
-      ctx.strokeStyle = flipper.active ? "#7be4ff" : "#00ccff";
-      ctx.beginPath();
-      ctx.moveTo(segment.p1.x, segment.p1.y);
-      ctx.lineTo(segment.p2.x, segment.p2.y);
-      ctx.stroke();
+      const sprite = this.sprites.get(spriteKey);
+
+      if (sprite && this.sprites.isReady()) {
+        ctx.translate(flipper.x, flipper.y);
+        ctx.rotate(flipper.angle);
+        
+        const h = 30; // sprite draw height
+        const w = flipper.length + 22; // sprite draw width (including base)
+        const pivotOffset = 11; // center of the circular base in the sprite
+        
+        if (flipper.direction === 1) {
+          // Left flipper: pivot is at the left end
+          ctx.drawImage(sprite, -pivotOffset, -h / 2, w, h);
+        } else {
+          // Right flipper: pivot is at the right end
+          ctx.drawImage(sprite, -w + pivotOffset, -h / 2, w, h);
+        }
+      } else {
+        const segment = getFlipperSegment(flipper);
+        ctx.lineCap = "round";
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = flipper.active ? "#7be4ff" : "#00ccff";
+        ctx.beginPath();
+        ctx.moveTo(segment.p1.x, segment.p1.y);
+        ctx.lineTo(segment.p2.x, segment.p2.y);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
     drawBall(ctx) {
       const ball = this.getRenderedBall();
       if (!ball) return;
-      const gradient = ctx.createRadialGradient(
-        ball.x - 3,
-        ball.y - 4,
-        2,
-        ball.x,
-        ball.y,
-        ball.r,
-      );
-      gradient.addColorStop(0, "#ffffff");
-      gradient.addColorStop(1, "#bcc7ff");
+      const sprite = this.sprites.get("ball");
+
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-      ctx.fillStyle = gradient;
-      ctx.fill();
+      if (sprite && this.sprites.isReady()) {
+        ctx.translate(ball.x, ball.y);
+        // Spin effect based on velocity
+        ctx.rotate(ball.x * 0.05);
+        ctx.drawImage(sprite, -ball.r, -ball.r, ball.r * 2, ball.r * 2);
+      } else {
+        const gradient = ctx.createRadialGradient(
+          ball.x - 3,
+          ball.y - 4,
+          2,
+          ball.x,
+          ball.y,
+          ball.r,
+        );
+        gradient.addColorStop(0, "#ffffff");
+        gradient.addColorStop(1, "#bcc7ff");
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
       ctx.restore();
     }
 
@@ -651,10 +734,10 @@
       this.drawWalls(ctx);
       this.drawAreaEffects(ctx);
       this.drawBumpers(ctx);
-      this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomLeft);
-      this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomRight);
-      this.drawFlipper(ctx, this.runtimeState.scene.flippers.topLeft);
-      this.drawFlipper(ctx, this.runtimeState.scene.flippers.topRight);
+      this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomLeft, "p1l");
+      this.drawFlipper(ctx, this.runtimeState.scene.flippers.bottomRight, "p1r");
+      this.drawFlipper(ctx, this.runtimeState.scene.flippers.topLeft, "p2l");
+      this.drawFlipper(ctx, this.runtimeState.scene.flippers.topRight, "p2r");
       this.drawBall(ctx);
       this.drawOverlay(ctx);
       ctx.restore();
